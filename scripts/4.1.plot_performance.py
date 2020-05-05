@@ -21,9 +21,9 @@ from matplotlib import pyplot as plt
 from matplotlib.patches import Patch
 
 sns.set_style('whitegrid')
-sns.set_context('talk',rc = {'weight' : 'bold'})
+sns.set_context('poster',font_scale = 1.5,rc = {'weight' : 'bold'})
 
-working_dir     = '../results'
+working_dir     = '../../another_git/agent_models/results'
 figure_dir      = '../figures'
 marker_factor   = 10
 marker_type     = ['8','s','p','*','+','D','o']
@@ -74,6 +74,7 @@ g               = sns.relplot(
                 alpha       = alpha_level,
                 data        = df_plot,
                 facet_kws   = {'gridspec_kws':{"wspace":0.2}},
+                aspect      = 2,
                 )
 [ax.axhline(0.5,
             linestyle       = '--',
@@ -88,6 +89,7 @@ handles, labels             = g.axes[0][0].get_legend_handles_labels()
 handles[1]                  = Patch(facecolor = 'black')
 handles[2]                  = Patch(facecolor = 'blue',)
 g._legend.remove()
+
 g.fig.legend(handles,
              labels,
              loc            = "center right",
