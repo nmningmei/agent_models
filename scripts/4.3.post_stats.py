@@ -28,9 +28,9 @@ from sklearn.utils import shuffle as sk_shuffle
 from sklearn.inspection import permutation_importance
 
 sns.set_style('white')
-sns.set_context('talk',rc = {'weight' : 'bold'})
+sns.set_context('poster',font_scale = 1.5,rc = {'weight' : 'bold'})
 
-working_dir     = '../results'
+working_dir     = '../../another_git/agent_models/results'
 figure_dir      = '../figures'
 marker_factor   = 10
 marker_type     = ['8','s','p','*','+','D','o']
@@ -184,7 +184,7 @@ aspects = {'hidden_units':.005,
         'noise_level':0.02,
         'drop':.001,
         'model_name':.001}
-fig,axes = plt.subplots(figsize = (15*2,6*3),
+fig,axes = plt.subplots(figsize = (25*2,8*3),
                       nrows = 2,
                       ncols = 3)
 for ax,(groupby,factor_name) in zip(axes.flatten(),{'hidden_units':'Hidden Units',
@@ -236,12 +236,14 @@ for ax,(groupby,factor_name) in zip(axes.flatten(),{'hidden_units':'Hidden Units
 
     output_activation
     ax.set(xticks = xticks,
-           xticklabels = xticklabels,
+           # xticklabels = xticklabels,
            yticks = [0,250,500,750,1000],
            yticklabels = [0,0.25,0.5,0.75,1],
            xlabel = factor_name,
            ylabel = 'Probability',
            )
+    ax.set_xticklabels(xticklabels,rotation = 45,ha = 'center')
+fig.tight_layout()
 fig.colorbar(im, ax=axes.ravel().tolist())
 fig.suptitle('Probablity of the SVM being able to decode the CNN when CNN performs at chance level')
 fig.savefig(os.path.join(figure_dir,'Probablity of the SVM being able to decode the CNN when CNN performs at chance level,jpeg'),
