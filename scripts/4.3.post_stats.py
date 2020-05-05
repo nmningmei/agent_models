@@ -177,13 +177,13 @@ fig.savefig(os.path.join(figure_dir,'feature importance.jpeg'),dpi = 300,bbox_in
 from collections import Counter
 from scipy import stats
 x = np.linspace(0, 1, 1000)
-alpha,beta = 2,2
-aspects = {'hidden_units':.005,
-        'hidden_activation':.005,
+alpha,beta = .1,2
+aspects = {'hidden_units':.0025,
+        'hidden_activation':.003,
         'output_activation':.001,
         'noise_level':0.02,
-        'drop':.001,
-        'model_name':.001}
+        'drop':.002,
+        'model_name':.002}
 fig,axes = plt.subplots(figsize = (25*2,8*3),
                       nrows = 2,
                       ncols = 3)
