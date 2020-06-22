@@ -2,8 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sun Feb 16 14:26:03 2020
+
 @author: nmei
+
 InceptionNet is excluded from analysis
+
 """
 
 import os
@@ -15,15 +18,15 @@ import numpy   as np
 import seaborn as sns
 
 import matplotlib
-matplotlib.pyplot.switch_backend('agg')
+# matplotlib.pyplot.switch_backend('agg')
 
 from matplotlib import pyplot as plt
 from matplotlib.patches import Patch
 
 sns.set_style('whitegrid')
-sns.set_context('poster',font_scale = 1.5,rc = {'weight' : 'bold'})
+sns.set_context('talk',rc = {'weight' : 'bold'})
 
-working_dir     = '../../another_git/agent_models/results'
+working_dir     = '../results'
 figure_dir      = '../figures'
 marker_factor   = 10
 marker_type     = ['8','s','p','*','+','D','o']
@@ -33,6 +36,9 @@ if not os.path.exists(figure_dir):
     os.mkdir(figure_dir)
 
 working_data = glob(os.path.join(working_dir,'*','*.csv'))
+
+paper_dir = '/export/home/nmei/nmei/properties_of_unconscious_processing/figures'
+
 
 df              = []
 for f in working_data:
@@ -50,6 +56,15 @@ noise_levels    = np.concatenate([[0],[item for item in np.logspace(-1,3,n_noise
 x_map           = {round(item,9):ii for ii,item in enumerate(noise_levels)}
 inverse_x_map   = {round(value,9):key for key,value in x_map.items()}
 print(x_map,inverse_x_map)
+
+_,bins          = pd.cut(np.arange(n_noise_levels),2,retbins = True)
+def cut_bins(x):
+    if bins[0] <= x < bins[1]:
+        return 'low'
+    # elif bins[1] <= x < bins[2]:
+    #     return 'medium'
+    else:
+        return 'high'
 
 df['x']         = df['noise_level'].round(9).map(x_map)
 print(df['x'].values)
@@ -74,7 +89,6 @@ g               = sns.relplot(
                 alpha       = alpha_level,
                 data        = df_plot,
                 facet_kws   = {'gridspec_kws':{"wspace":0.2}},
-                aspect      = 2,
                 )
 [ax.axhline(0.5,
             linestyle       = '--',
@@ -82,6 +96,10 @@ g               = sns.relplot(
             alpha           = 1.,
             lw              = 1,
             ) for ax in g.axes.flatten()]
+[ax.set(xticks = [0,n_noise_levels],
+        xticklabels = [0,noise_levels.max()]
+        ) for ax in g.axes.flatten()]
+
 (g.set_axis_labels('Noise Level','ROC AUC')
   .set_titles('{col_name} {row_name}'))
 handles, labels             = g.axes[0][0].get_legend_handles_labels()
@@ -89,7 +107,6 @@ handles, labels             = g.axes[0][0].get_legend_handles_labels()
 handles[1]                  = Patch(facecolor = 'black')
 handles[2]                  = Patch(facecolor = 'blue',)
 g._legend.remove()
-
 g.fig.legend(handles,
              labels,
              loc            = "center right",
@@ -100,9 +117,15 @@ g.savefig(os.path.join(figure_dir,'CNN_performance.jpeg'),
 g.savefig(os.path.join(figure_dir,'CNN_performance (light).jpeg'),
 #          dpi = 300,
           bbox_inches       = 'tight')
+g.savefig(os.path.join(paper_dir,'CNN_performance.jpeg'),
+          dpi               = 300,
+          bbox_inches       = 'tight')
 
 # plot the decoding when CNN failed
 df_chance                   = []
+n_total                     = 0
+n_decode_total              = 0
+n_CNN_chance                = 0
 for attrs,df_sub in tqdm(df.groupby(['model_name',
                                      'hidden_units',
                                      'hidden_activation',
@@ -110,11 +133,14 @@ for attrs,df_sub in tqdm(df.groupby(['model_name',
                                      'noise_level',
                                      'drop',
                                      ])):
+    n_total += 1
     if (df_sub.shape[0] > 1):
         df_cnn = df_sub[df_sub['model'] == 'CNN']
         df_svm = df_sub[df_sub['model'] == 'linear-SVM']
+        n_decode_total += 1
         if (df_cnn['pval'].values > 0.05):# and (df_svm['pval'].values < 0.05):
             df_chance.append(df_sub)
+            n_CNN_chance += 1
 df_chance                   = pd.concat(df_chance)
 
 idxs                            = np.logical_or(df_chance['model'] == 'CNN',df_chance['model'] == 'linear-SVM')
@@ -141,14 +167,50 @@ g                               = sns.relplot(
                 aspect          = 3,
                 )
 (g.set_axis_labels('Noise Level','ROC AUC')
-  .set_titles('{row_name}'))
+  .set_titles('{row_name}')
+  .set(xlim = (-0.1,50.5)))
+[ax.set(xticks = [0,n_noise_levels],
+        xticklabels = [0,noise_levels.max()]
+        ) for ax in g.axes.flatten()]
 [ax.axhline(0.5,
             linestyle           = '--',
             color               = 'black',
             alpha               = 1.,
             lw                  = 1,
             ) for ax in g.axes.flatten()]
+
+temp = []
+for model_name,ax in zip(['alexnet','vgg19','mobilenet','densenet','resnet',],g.axes.flatten()):
+    df_sub = df_plot[df_plot['model'] == 'linear-SVM']
+    df_sub = df_sub[df_sub['model_name'] == model_name]
+    df_sub['groups'] = df_sub['x'].apply(cut_bins)
+    counter = df_sub.groupby(['groups','Decode Above Chance']).count().reset_index()[['groups','Decode Above Chance','x']]
+    sum_of_group = counter['x'].values[::2] + counter['x'].values[1::2]
+    counter['proportion'] = counter['x'].values / np.repeat(sum_of_group,2)
+    counter['model_name'] = model_name
+    temp.append(counter)
+    
+    ax.axvline(bins[1],linestyle = '--' ,color = 'black', alpha = 0.6)
+    
+    tiny_ax = ax.inset_axes([.6,.6,.3,.3])
+    tiny_ax = sns.barplot(x = 'groups',
+                          y = 'proportion',
+                          hue = 'Decode Above Chance',
+                          data = counter,
+                          ax = tiny_ax,
+                          )
+    tiny_ax.set(xticklabels = ['low','medium','high'],
+                xlabel = 'Noise Level')
+    tiny_handles,tiny_labels = tiny_ax.get_legend_handles_labels()
+    tiny_ax.get_legend().remove()
+    
+df_proportion = pd.concat(temp)
+df_proportion.to_csv(os.path.join(paper_dir.replace('figures','stats'),
+                                  'CNN_chance_decode_proportion.csv'),
+                     index = False)
 handles, labels                 = g.axes[0][0].get_legend_handles_labels()
+[handles.append(item) for item in tiny_handles]
+[labels.append(item) for item in ['Decode At Chance','Decode Above Chance']]
 g._legend.remove()
 for ii,color in enumerate(sns.color_palette("bright")[:k]):
     handles[ii + 1]             = Patch(facecolor = color)
@@ -156,6 +218,7 @@ g.fig.legend(handles,
              labels,
              loc = "center right",
              borderaxespad = 0.1)
+
 g.fig.suptitle('Linear SVM decoding the hidden layers of CNNs that failed to descriminate living vs. nonliving',
                y = 1.02)
 g.savefig(os.path.join(figure_dir,'decoding_performance.jpeg'),
@@ -163,6 +226,9 @@ g.savefig(os.path.join(figure_dir,'decoding_performance.jpeg'),
           bbox_inches = 'tight')
 g.savefig(os.path.join(figure_dir,'decoding_performance (light).jpeg'),
 #          dpi = 300,
+          bbox_inches = 'tight')
+g.savefig(os.path.join(paper_dir,'decoding_performance.jpeg'),
+          dpi = 300,
           bbox_inches = 'tight')
 
 #fig,axes = plt.subplots(figsize = (70,40),
@@ -253,3 +319,28 @@ g.savefig(os.path.join(figure_dir,'decoding_performance (light).jpeg'),
 #fig.savefig(os.path.join(figure_dir,'decoding performance (light).jpeg'),
 ##          dpi = 300,
 #          bbox_inches = 'tight')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
