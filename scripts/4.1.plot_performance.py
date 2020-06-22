@@ -24,7 +24,15 @@ from matplotlib import pyplot as plt
 from matplotlib.patches import Patch
 
 sns.set_style('whitegrid')
-sns.set_context('talk',rc = {'weight' : 'bold'})
+sns.set_context('poster',font_scale = 1.5)
+from matplotlib import rc
+rc('font',weight = 'bold')
+plt.rcParams['axes.labelsize'] = 45
+plt.rcParams['axes.labelweight'] = 'bold'
+plt.rcParams['axes.titlesize'] = 45
+plt.rcParams['axes.titleweight'] = 'bold'
+plt.rcParams['ytick.labelsize'] = 32
+plt.rcParams['xtick.labelsize'] = 32
 
 working_dir     = '../results'
 figure_dir      = '../figures'
@@ -89,6 +97,7 @@ g               = sns.relplot(
                 alpha       = alpha_level,
                 data        = df_plot,
                 facet_kws   = {'gridspec_kws':{"wspace":0.2}},
+                aspect      = 3,
                 )
 [ax.axhline(0.5,
             linestyle       = '--',
@@ -164,7 +173,7 @@ g                               = sns.relplot(
                 alpha           = alpha_level,
                 data            = df_plot[df_plot['model'] == 'linear-SVM'],
                 palette         = sns.color_palette("bright")[:k],
-                aspect          = 3,
+                aspect          = 4,
                 )
 (g.set_axis_labels('Noise Level','ROC AUC')
   .set_titles('{row_name}')
@@ -194,13 +203,16 @@ for model_name,ax in zip(['alexnet','vgg19','mobilenet','densenet','resnet',],g.
     
     tiny_ax = ax.inset_axes([.6,.6,.3,.3])
     tiny_ax = sns.barplot(x = 'groups',
+                          order = ['low','high'],
                           y = 'proportion',
                           hue = 'Decode Above Chance',
+                          hue_order = [True,False],
                           data = counter,
                           ax = tiny_ax,
                           )
-    tiny_ax.set(xticklabels = ['low','medium','high'],
-                xlabel = 'Noise Level')
+    # tiny_ax.set(xticklabels = ['low','medium','high'],
+    tiny_ax.set_xlabel('')
+    tiny_ax.set_ylabel('')
     tiny_handles,tiny_labels = tiny_ax.get_legend_handles_labels()
     tiny_ax.get_legend().remove()
     
@@ -210,7 +222,7 @@ df_proportion.to_csv(os.path.join(paper_dir.replace('figures','stats'),
                      index = False)
 handles, labels                 = g.axes[0][0].get_legend_handles_labels()
 [handles.append(item) for item in tiny_handles]
-[labels.append(item) for item in ['Decode At Chance','Decode Above Chance']]
+[labels.append(item) for item in ['Decode Above Chance','Decode At Chance']]
 g._legend.remove()
 for ii,color in enumerate(sns.color_palette("bright")[:k]):
     handles[ii + 1]             = Patch(facecolor = color)
@@ -219,8 +231,8 @@ g.fig.legend(handles,
              loc = "center right",
              borderaxespad = 0.1)
 
-g.fig.suptitle('Linear SVM decoding the hidden layers of CNNs that failed to descriminate living vs. nonliving',
-               y = 1.02)
+# g.fig.suptitle('Linear SVM decoding the hidden layers of CNNs that failed to descriminate living vs. nonliving',
+#                y = 1.02)
 g.savefig(os.path.join(figure_dir,'decoding_performance.jpeg'),
           dpi = 300,
           bbox_inches = 'tight')
