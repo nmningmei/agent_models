@@ -32,8 +32,10 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.utils import shuffle as sk_shuffle
 
-from xgboost import XGBClassifier
-
+try:
+    from xgboost import XGBClassifier
+except:
+    pass
 output_act_func_dict = {'softmax':F.softmax, # softmax dim = 1
                         'sigmoid':torch.sigmoid,}
 probability_func_dict = {'softmax':F.softmax,    # softmax dim = 1
