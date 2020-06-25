@@ -177,13 +177,13 @@ if (not os.path.exists(f_name)) or (testing):
         if (len(losses) > patience) and (len(set(losses[-patience:])) == 1):
             break
 
-model_to_train = torch.load(f_name)
-
-y_trues,y_preds,scores,features,labels = behavioral_evaluate(model_to_train,
-                                                             n_experiment_runs,
-                                                             loss_func,
-                                                             valid_loader,
-                                                             device,
-                                                             categorical = categorical,
-                                                             output_activation = output_activation,
-                                                             )
+#model_to_train = torch.load(f_name)
+#
+#y_trues,y_preds,scores,features,labels = behavioral_evaluate(model_to_train,
+#                                                             n_experiment_runs,
+#                                                             loss_func,
+#                                                             valid_loader,
+#                                                             device,
+#                                                             categorical = categorical,
+#                                                             output_activation = output_activation,
+#                                                             )
