@@ -11,15 +11,17 @@ import numpy as np
 import pandas as pd
 
 import torch
-
-from torchvision import transforms
+#from torch.utils.data import Dataset
+from torchvision import transforms,datasets
 
 from sklearn import metrics
 from sklearn.utils import shuffle
 
+from glob import glob
+
 from utils_deep import (data_loader,
                         createLossAndOptimizer,
-                        behavioral_evaluate,
+                        behavioral_evaluate_with_path,
                         build_model,
                         hidden_activation_functions,
                         resample_ttest_2sample,
@@ -31,6 +33,8 @@ from utils_deep import (data_loader,
                         )
 from matplotlib import pyplot as plt
 #plt.switch_backend('agg')
+
+from scipy.spatial import distance
 
 print('set up random seeds')
 torch.manual_seed(12345)
@@ -57,14 +61,14 @@ patience                = 5
 output_activation       = 'softmax'
 model_saving_name       = f'{pretrain_model_name}_{hidden_units}_{hidden_func_name}_{hidden_dropout}_{output_activation}'
 testing                 = True #
-n_experiment_runs       = 20
+n_experiment_runs       = 1000
 
 n_noise_levels          = 50
 n_keep_going            = 32
 start_decoding          = False
 to_round                = 9
 
-results_dir             = '../results/'
+results_dir             = '../stability/'
 if not os.path.exists(results_dir):
     os.mkdir(results_dir)
 if not os.path.exists(os.path.join(results_dir,model_saving_name)):
@@ -124,8 +128,15 @@ for var in noise_levels:
                 valid_root,
                 augmentations   = augmentations['valid'],
                 batch_size      = batch_size,
+                return_path     = True,
                 # here I turn on the shuffle like it is in a real experiment
                 )
+        secondary_map = {}
+        category_map = {}
+        for item in glob(os.path.join(valid_root,"*","*","*.jpg")):
+            _,_,_,_category,_subcategory,_temp = item.split('/')
+            secondary_map[_temp.split('.')[0]] = _subcategory
+            category_map[_temp.split('.')[0]] = _category
         visualize_loader    = data_loader(
                 valid_root,
                 augmentations   = augmentations['visualize'],
@@ -150,7 +161,7 @@ for var in noise_levels:
         loss_func,optimizer = createLossAndOptimizer(model_to_train,learning_rate = lr)
         
         # evaluate the model
-        y_trues,y_preds,scores,features,labels = behavioral_evaluate(
+        y_trues,y_preds,scores,features,labels,items = behavioral_evaluate_with_path(
                                                         model_to_train,
                                                         n_experiment_runs,
                                                         loss_func,
@@ -174,15 +185,26 @@ for var in noise_levels:
                                                  n_jobs = -1,
                                                  verbose = 1,
                                                  )
-        asf
-        # save the features and labels from the hidden layer
-        decode_features = torch.cat([torch.cat(run) for run in features])
-        decode_labels   = torch.cat([torch.cat(run) for run in labels])
-
-        decode_features = decode_features.detach().cpu().numpy()
-        decode_labels   = decode_labels.detach().cpu().numpy()
-
-        if categorical:
-            decode_labels = decode_labels[:,-1]
         
+        # save the features and labels from the hidden layer
+        decode_features = [torch.cat(run).detach().cpu().numpy() for run in features]
+        decode_labels   = [torch.cat(run).detach().cpu().numpy() for run in labels]
+        decode_items    = [np.concatenate(run) for run in items]
+        
+        RDMs = np.zeros((n_experiment_runs,4560))
+        for ii,(_features,_labels,_items) in enumerate(
+                zip(decode_features,decode_labels,decode_items)):
+            if categorical:
+                _labels = _labels[:,-1]
+            df_for_sort = pd.DataFrame(_items.reshape(-1,1),columns = ['items'])
+            df_for_sort['subcategory'] = df_for_sort['items'].map(secondary_map)
+            df_for_sort['targets'] = df_for_sort['items'].map(category_map)
+            
+            idx_sort = df_for_sort.sort_values(['targets','subcategory','items']).index.values
+            temp = _features[idx_sort]
+            RDMs[ii,:] = distance.pdist(temp - temp.mean(1).reshape(-1,1),'cosine')
+        RDM_of_RDMs = distance.pdist(RDMs - RDMs.mean(1).reshape(-1,1),'cosine')
+        
+        df_to_save = pd.DataFrame(RDM_of_RDMs.reshape(-1,1),colmns = ['RDM'])
+        df_to_save['noise_level'] = var
 print('done')

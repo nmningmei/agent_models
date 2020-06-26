@@ -81,11 +81,19 @@ def output_activation_functions(activation_func_name):
                  )
     return funcs[activation_func_name]
 
+class customizedDataset(ImageFolder):
+    def __getitem__(self, idx):
+        original_tuple  = super(customizedDataset,self).__getitem__(idx)
+        path = self.imgs[idx][0]
+        tuple_with_path = (original_tuple +  (path,))
+        return tuple_with_path
+    
 def data_loader(data_root:str,
                 augmentations:transforms    = None,
                 batch_size:int              = 8,
                 num_workers:int             = 2,
                 shuffle:bool                = True,
+                return_path:bool            = False,
                 )->data.DataLoader:
     """
     Create a batch data loader from a given image folder.
@@ -119,12 +127,19 @@ def data_loader(data_root:str,
     batch_size: int, batch size
     num_workers: int, CPU --> GPU carrier, number of CPUs
     shuffle: Boolean, whether to shuffle the order
+    return_pth: Boolean, lod the image paths
 
     Output
     --------------------------
     loader: DataLoader, a Pytorch dataloader object
     """
-    datasets    = ImageFolder(
+    if return_path:
+        datasets = customizedDataset(
+                root                        = data_root,
+                transform                   = augmentations
+                )
+    else:
+        datasets    = ImageFolder(
                 root                        = data_root,
                 transform                   = augmentations
                 )
@@ -516,6 +531,62 @@ def validation_loop(net,
         valid_loss = valid_loss / (denominator + 1)
     return valid_loss,y_pred,y_true,features,labels
 
+def validation_loop_with_path(net,
+                              loss_func,
+                              dataloader,
+                              device,
+                              categorical = True,
+                              output_activation = 'softmax',
+                              ):
+    """
+    net:nn.Module, torch model object
+    loss_func:nn.Module, loss function
+    dataloader:torch.data.DataLoader
+    device:str or torch.device
+    categorical:Boolean, whether to one-hot labels
+    output_activation:string, calling the activation function from an inner dictionary
+
+    """
+    from tqdm import tqdm
+    probability_func        = probability_func_dict[output_activation]
+    output_activation_func  = output_act_func_dict[output_activation]
+    # specify the gradient being frozen and dropout etc layers will be turned off
+    net.to(device).eval()
+    with no_grad():
+        valid_loss      = 0.
+        y_pred          = []
+        y_true          = []
+        features,labels,item = [],[],[]
+        for ii,(batch_features,batch_labels,batch_path) in tqdm(enumerate(dataloader)):
+            item.append([item.split('/')[-1].split('.')[0] for item in batch_path])
+            if "Binary Cross Entropy" in loss_func.__doc__:
+                batch_labels = batch_labels.float()
+            batch_labels.to(device)
+            if ii + 1 <= len(dataloader):
+                # load the data to memory
+                inputs      = Variable(batch_features).to(device)
+                # compute the outputs
+                outputs,feature_   = net(inputs)
+                # activation function for outputs
+                if categorical:
+                    y_pred.append(probability_func(outputs.clone(),softmax_dim))
+                    outputs         = output_activation_func(outputs.clone(),softmax_dim)
+                    batch_labels    = torch.stack([batch_labels,1- batch_labels]).T
+                else:
+                    y_pred.append(probability_func(outputs.clone()))
+                    outputs         = output_activation_func(outputs.clone())
+                # compute the losses
+                loss_batch  = loss_func(outputs.to(device),batch_labels.view(outputs.shape).to(device))
+                # record the validation loss of a mini-batch
+                valid_loss  += loss_batch.data
+                denominator = ii
+
+                y_true.append(batch_labels)
+                features.append(feature_)
+                labels.append(batch_labels)
+        valid_loss = valid_loss / (denominator + 1)
+    return valid_loss,y_pred,y_true,features,labels,item
+
 def resample_behavioral_estimate(y_true,y_pred,n_sampling = int(1e3),shuffle = False):
     scores = np.zeros(n_sampling)
     for _idx in range(n_sampling):
@@ -615,6 +686,95 @@ def behavioral_evaluate(net,
         print(f'\nwith {image_type} images, score = {np.mean(scores):.4f}+/-{np.std(scores):.4f}')
         return y_trues,y_preds,scores,features,labels
 
+def behavioral_evaluate_with_path(net,
+                        n_experiment_runs,
+                        loss_func,
+                        dataloader,
+                        device,
+                        categorical = True,
+                        output_activation = 'softmax',
+                        image_type = 'clear',
+                        small_dataset = True,
+                        ):
+    """
+    This function evaluates the trained network with given dataloader (could be noisy) for
+    a few blocks (like an experiment blocks). The performance of the network is estimated
+    by the average of the blocks
+
+    Inputs
+    ----------------
+    net: nn.Module, the trained network
+    n_experiment_runs: int, number of blocks of evaluating the network
+    loss_func: torch.nn, loss function
+    dataloader: torch.utils.dataset, a dataloader with agumentation procedures
+    device: torch.device, where to put the network and the data
+    categorical: Boolean, corresponding to the output layer and activation
+    output_activation: String, the name of the output activation function, it is used to called the torch function
+    image_type: for printing the information
+    small_dataset: Boolean, not functional
+
+    Outputs
+    -----------------
+    y_trues: list of torch.tensors
+    y_preds: list of torch.tensors
+    scores: list of float
+    features: list of torch.autograd.Variables
+    labels: list of torch.tensors
+    """
+    if len(dataloader) > 100: # when the validation data is large
+        small_dataset   = False
+    # when the validation data is small
+    if small_dataset:
+        y_preds,y_trues = [],[]
+        features,labels = [],[]
+        items = []
+        for n_run in range(n_experiment_runs):
+            _,y_pred,y_true,_features,_labels,_items= validation_loop_with_path(
+                                net,
+                                loss_func,
+                                dataloader          = dataloader,
+                                device              = device,
+                                categorical         = categorical,
+                                output_activation   = output_activation,
+                                )
+            y_preds.append(torch.cat(y_pred).detach().cpu())
+            y_trues.append(torch.cat(y_true).detach().cpu())
+            features.append(_features)
+            labels.append(_labels)
+            items.append(_items)
+        yy_trues = torch.cat(y_trues).detach().cpu().numpy()
+        yy_preds = torch.cat(y_preds).detach().cpu().numpy()
+
+        scores = resample_behavioral_estimate(yy_trues,yy_preds)
+
+        if categorical:
+            confidence = torch.cat(y_preds).cpu().numpy().max(1)
+        else:
+            temp = torch.cat(y_preds).cpu().numpy()
+            temp[temp < 0.5] = 1- temp[temp < 0.5]
+            confidence = temp.copy()
+
+        print(f'\nwith {image_type} images, score = {np.mean(scores):.4f}+/-{np.std(scores):.4f},confidence = {np.mean(confidence):.2f}+/-{np.std(confidence):.2f}')
+
+        return y_trues,y_preds,scores,features,labels,items
+    else:
+        _,y_pred,y_true,features,labels = validation_loop(
+                                net,
+                                loss_func,
+                                dataloader = dataloader,
+                                device = device,
+                                categorical = categorical,
+                                output_activation = output_activation,
+                                )
+        scores = np.zeros(n_experiment_runs)
+        for jj in range(n_experiment_runs):
+            idx_ = np.random.choice(y_true.shape[0],size = int(y_true.shape[0]),replace = True)
+            y_pred_,y_true_ = y_pred[idx_],y_true[idx_]
+            score = metrics.roc_auc_score(y_true_,y_pred_)
+            scores[jj] = score
+        print(f'\nwith {image_type} images, score = {np.mean(scores):.4f}+/-{np.std(scores):.4f}')
+        return y_trues,y_preds,scores,features,labels
+    
 def noise_fuc(x,noise_level = 1):
     """
     add guassian noise to the images during agumentation procedures
@@ -820,7 +980,6 @@ def resample_ttest_2sample(a,b,
         t_experiment        = np.mean(a) - np.mean(b)
         if not one_tail:
             t_experiment    = np.abs(t_experiment)
-
         def t_statistics(a,b):
             group           = np.concatenate([a,b])
             np.random.shuffle(group)
@@ -830,11 +989,15 @@ def resample_ttest_2sample(a,b,
             if not one_tail:
                 t_null      = np.abs(t_null)
             return t_null
-
-        gc.collect()
-        t_null_null = Parallel(n_jobs = n_jobs,verbose = verbose)(delayed(t_statistics)(**{
-                        'a':a,
-                        'b':b}) for i in range(n_permutation))
+        try:
+           gc.collect()
+           t_null_null = Parallel(n_jobs = n_jobs,verbose = verbose)(delayed(t_statistics)(**{
+                            'a':a,
+                            'b':b}) for i in range(n_permutation))
+        except:
+            t_null_null = np.zeros(n_permutation)
+            for ii in range(n_permutation):
+                t_null_null = t_statistics(a,b)
         if one_tail:
             ps = ((np.sum(t_null_null >= t_experiment)) + 1) / (n_permutation + 1)
         else:
