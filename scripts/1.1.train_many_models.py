@@ -52,7 +52,7 @@ from utils_deep import (data_loader,
 
 # experiment control
 model_dir               = '../models'
-train_folder            = 'grayscaled'
+train_folder            = 'greyscaled'
 valid_folder            = 'experiment_images_grayscaled'
 train_root              = f'../data/{train_folder}/'
 valid_root              = f'../data/{valid_folder}'
@@ -62,7 +62,7 @@ batch_size              = 8
 lr                      = 1e-4
 n_epochs                = int(1e3)
 device                  = 'cpu'
-pretrain_model_name     = 'resnet'
+pretrain_model_name     = 'vgg19'
 hidden_units            = 100
 hidden_func_name        = 'relu'
 hidden_activation       = hidden_activation_functions(hidden_func_name)

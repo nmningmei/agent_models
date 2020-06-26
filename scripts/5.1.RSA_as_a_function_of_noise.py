@@ -38,7 +38,7 @@ torch.manual_seed(12345)
 
 # experiment control
 model_dir               = '../models'
-train_folder            = 'grayscaled'
+train_folder            = 'greyscaled'
 valid_folder            = 'experiment_images_grayscaled'
 train_root              = f'../data/{train_folder}/'
 valid_root              = f'../data/{valid_folder}'
@@ -48,7 +48,7 @@ batch_size              = 8
 lr                      = 1e-4
 n_epochs                = int(1e3)
 device                  = 'cpu'
-pretrain_model_name     = 'resnet'
+pretrain_model_name     = 'vgg19'
 hidden_units            = 100
 hidden_func_name        = 'relu'
 hidden_activation       = hidden_activation_functions(hidden_func_name)
@@ -143,11 +143,12 @@ for var in noise_levels:
         model_to_train.to(device)
         for params in model_to_train.parameters():
             params.requires_grad = False
-
+        
         f_name              = os.path.join(model_dir,model_saving_name,model_saving_name+'.pth')
         # load trained model
         model_to_train      = torch.load(f_name)
         loss_func,optimizer = createLossAndOptimizer(model_to_train,learning_rate = lr)
+        
         # evaluate the model
         y_trues,y_preds,scores,features,labels = behavioral_evaluate(
                                                         model_to_train,
@@ -159,7 +160,7 @@ for var in noise_levels:
                                                         output_activation   = output_activation,
                                                         image_type          = f'{var:1.1e} noise',
                                                         )
-
+        print('evaluate behaviroal performation')
         # estimate chance level scores
         np.random.seed(12345)
         yy_trues        = torch.cat(y_trues).detach().cpu().numpy()
@@ -169,12 +170,11 @@ for var in noise_levels:
         pval            = resample_ttest_2sample(scores,chance_scores,
                                                  match_sample_size = False,
                                                  one_tail = False,
-                                                 n_ps = 1,
                                                  n_permutation = int(1e5),
                                                  n_jobs = -1,
                                                  verbose = 1,
                                                  )
-
+        asf
         # save the features and labels from the hidden layer
         decode_features = torch.cat([torch.cat(run) for run in features])
         decode_labels   = torch.cat([torch.cat(run) for run in labels])
@@ -184,125 +184,5 @@ for var in noise_levels:
 
         if categorical:
             decode_labels = decode_labels[:,-1]
-        np.save(os.path.join(noise_folder,'features.npy'),decode_features)
-        np.save(os.path.join(noise_folder,'labels.npy'  ),decode_labels)
-        gc.collect()
-        results['model_name'        ].append(pretrain_model_name)
-        results['hidden_units'      ].append(hidden_units)
-        results['hidden_activation' ].append(hidden_func_name)
-        results['output_activation' ].append(output_activation)
-        results['noise_level'       ].append(round(var,to_round))
-        results['score_mean'        ].append(np.mean(scores))
-        results['score_std'         ].append(np.std(scores))
-        results['chance_mean'       ].append(np.mean(chance_scores))
-        results['chance_std'        ].append(np.std(chance_scores))
-        results['model'             ].append('CNN')
-        results['pval'              ].append(np.mean(pval))
-        results['dropout'           ].append(hidden_dropout)
-        y_preds = torch.cat(y_preds).detach().cpu().numpy()
-        if len(y_preds.shape) > 1:
-            confidence = y_preds.max(1)
-        else:
-            confidence = y_preds.copy()
-        results['confidence_mean'   ].append(np.mean(confidence))
-        results['confidence_std'    ].append(np.std(confidence))
-
-        # save example noisy images
-        print('plotting example images')
-
-        batches,batch_labels    = next(iter(visualize_loader))
-
-        PIL_transformer         = transforms.ToPILImage()
-        plt.close('all')
-        fig,axes                = plt.subplots(figsize = (16,16),nrows = 4,ncols = 4)
-        for ax,batch_,batch_label in zip(axes.flatten(),batches,batch_labels):
-            batch_              = np.array(PIL_transformer(batch_))
-            ax.imshow(batch_,)
-            ax.axis('off')
-            ax.set(title        = {0:'living',
-                                   1:'nonliving'}[int(batch_label.numpy())])
-        fig.suptitle(f'noise level = {var:1.1e}, performance = {np.mean(scores):.3f} +/- {np.std(scores):.3f}\nconfidence = {np.mean(confidence):.3f} +/- {np.std(confidence):.3f}')
-        fig.savefig(os.path.join(noise_folder,'examples.jpeg'),bbox_inches = 'tight')
-        plt.close('all')
-        gc.collect()
-
-        if np.mean(scores) < 0.55:
-            start_decoding  = True
-        if start_decoding:
-            decode_scores   = []
-            for decoder_name in ['linear-SVM','RBF-SVM','RF']:#,'logit']:
-                decoder     = make_decoder(decoder_name,n_jobs = 1)
-                res,cv      = decode_hidden_layer(decoder,
-                                                  decode_features,
-                                                  decode_labels,
-                                                  n_splits          = 100,
-                                                  test_size         = 0.2,
-                                                  categorical       = categorical,
-                                                  output_activation = output_activation,)
-                decode_scores.append(res['test_score'].mean())
-                y_preds = []
-                for (_,idx_test),est in zip(cv.split(decode_features,decode_labels),res['estimator']):
-                    y_pred_ = est.predict_proba(decode_features[idx_test])
-                    y_preds.append(y_pred_)
-                y_preds = np.concatenate(y_preds)
-                if len(y_preds.shape) > 1:
-                    confidence = y_preds.max(1)
-                else:
-                    confidence = y_preds.copy()
-
-                pval = resample_ttest(res['test_score'],
-                                      0.5,
-                                      one_tail      = True,
-                                      n_jobs        = -1,
-                                      n_ps          = 50,
-                                      n_permutation = int(1e5),
-                                      verbose       = 1,
-                                      )
-                gc.collect()
-                results['model_name'        ].append(pretrain_model_name)
-                results['hidden_units'      ].append(hidden_units)
-                results['hidden_activation' ].append(hidden_func_name)
-                results['output_activation' ].append(output_activation)
-                results['noise_level'       ].append(round(var,to_round))
-                results['score_mean'        ].append(np.mean(res['test_score']))
-                results['score_std'         ].append(np.std(res['test_score']))
-                results['chance_mean'       ].append(.5)
-                results['chance_std'        ].append(0.)
-                results['model'             ].append(decoder_name)
-                results['pval'              ].append(np.mean(pval))
-                results['confidence_mean'   ].append(np.mean(confidence))
-                results['confidence_std'    ].append(np.std(confidence))
-                results['dropout'           ].append(hidden_dropout)
-                print(f"\nwith {var:1.1e} noise images, {decoder_name} = {np.mean(res['test_score']):.4f}+/-{np.std(res['test_score']):.4f},pval = {np.mean(pval):1.1e}")
-
-        results_to_save = pd.DataFrame(results)
-        results_to_save.to_csv(csv_saving_name,index = False)
-
-        res_temp.append(np.mean(scores))
-
-        # CNN being too good above 0.5 for only a little bit
-        if len(res_temp) > n_keep_going:
-            criterion1  = (np.abs(np.median(res_temp[-n_keep_going:]) - .5) < 1e-3)
-        else:
-            criterion1  = False
-        # CNN is below 0.5 for a long time
-        criterion2      = (np.median(res_temp[-n_keep_going:]) < 0.5)
-        # decoders can no longer decoder
-        try:
-            criterion3  = np.logical_and(len(decode_scores) > 1,all(np.array(decode_scores) < 0.5))
-        except:
-            criterion3  = False
-
-        if criterion1 and criterion2 and criterion3:
-            break
-    else:
-        idx_ ,          = np.where(np.array(results['noise_level']).round(5) == var)
-        score_mean      = results['score_mean'][idx_[0]]
-        score_std       = results['score_std'][idx_[0]]
-        confidence_mean = results['confidence_mean'][idx_[0]]
-        confidence_std  = results['confidence_std'][idx_[0]]
-        print(f'\nwith {var:1.1e} noise images, score = {score_mean:.4f}+/-{score_std:.4f},confidence = {confidence_mean:.2f}+/-{confidence_std:.2f}')
-        res_temp.append(score_mean)
-        if ((np.abs(np.mean(res_temp[-n_keep_going:]) - .5) < 1e-3) and (len(res_temp) > n_keep_going)) or (np.mean(res_temp[-n_keep_going:]) < 0.5):
-            break
+        
 print('done')

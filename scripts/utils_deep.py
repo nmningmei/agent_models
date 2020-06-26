@@ -756,7 +756,6 @@ def decode_hidden_layer(decoder,
 
 def resample_ttest(x,
                    baseline         = 0.5,
-                   n_ps             = 100,
                    n_permutation    = 10000,
                    one_tail         = False,
                    n_jobs           = 12,
@@ -783,30 +782,20 @@ def resample_ttest(x,
     if null.shape[0] > int(1e4): # catch for big data
         full_size   = False
     if not full_size:
-        size        = int(1e3)
+        size        = (int(1e3),n_permutation)
     else:
-        size = null.shape[0]
+        size = (null.shape[0],n_permutation)
+    
+    null_dist = np.random.choice(null,size = size,replace = True)
+    t_null = np.mean(null_dist,0)
+    
+    if one_tail:
+        return ((np.sum(t_null >= t_experiment)) + 1) / (size[1] + 1)
+    else:
+        return ((np.sum(np.abs(t_null) >= np.abs(t_experiment))) + 1) / (size[1] + 1) /2
 
-
-    gc.collect()
-    def t_statistics(null,size,):
-        """
-        null: shifted data distribution
-        size: tuple of 2 integers (n_for_averaging,n_permutation)
-        """
-        null_dist   = np.random.choice(null,size = size,replace = True)
-        t_null      = np.mean(null_dist,0)
-        if one_tail:
-            return ((np.sum(t_null >= t_experiment)) + 1) / (size[1] + 1)
-        else:
-            return ((np.sum(np.abs(t_null) >= np.abs(t_experiment))) + 1) / (size[1] + 1) /2
-    ps = Parallel(n_jobs = n_jobs,verbose = verbose)(delayed(t_statistics)(**{
-                    'null':null,
-                    'size':(size,int(n_permutation)),}) for i in range(n_ps))
-
-    return np.array(ps)
+    
 def resample_ttest_2sample(a,b,
-                           n_ps                 = 100,
                            n_permutation        = 10000,
                            one_tail             = False,
                            match_sample_size    = True,
@@ -820,7 +809,6 @@ def resample_ttest_2sample(a,b,
         difference  = a - b
         ps          = resample_ttest(difference,
                                      baseline       = 0,
-                                     n_ps           = n_ps,
                                      n_permutation  = n_permutation,
                                      one_tail       = one_tail,
                                      n_jobs         = n_jobs,
@@ -842,15 +830,13 @@ def resample_ttest_2sample(a,b,
             return t_null
 
         gc.collect()
-        ps = np.zeros(n_ps)
-        for ii in range(n_ps):
-            t_null_null = Parallel(n_jobs = n_jobs,verbose = verbose)(delayed(t_statistics)(**{
-                            'a':a,
-                            'b':b}) for i in range(n_permutation))
-            if one_tail:
-                ps[ii] = ((np.sum(t_null_null >= t_experiment)) + 1) / (n_permutation + 1)
-            else:
-                ps[ii] = ((np.sum(np.abs(t_null_null) >= np.abs(t_experiment))) + 1) / (n_permutation + 1) / 2
+        t_null_null = Parallel(n_jobs = n_jobs,verbose = verbose)(delayed(t_statistics)(**{
+                        'a':a,
+                        'b':b}) for i in range(n_permutation))
+        if one_tail:
+            ps = ((np.sum(t_null_null >= t_experiment)) + 1) / (n_permutation + 1)
+        else:
+            ps = ((np.sum(np.abs(t_null_null) >= np.abs(t_experiment))) + 1) / (n_permutation + 1) / 2
         return ps
 
 def Find_Optimal_Cutoff(target, predicted):
