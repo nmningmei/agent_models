@@ -18,6 +18,7 @@ from sklearn import metrics
 from sklearn.utils import shuffle
 
 from glob import glob
+from tqdm import tqdm
 
 from utils_deep import (data_loader,
                         createLossAndOptimizer,
@@ -100,7 +101,6 @@ df_to_save = dict( model_name           = [],
                    score_std            = [],
                    chance_mean          = [],
                    chance_std           = [],
-                   model                = [],
                    pval                 = [],
                    dropout              = [],
                    )
@@ -199,8 +199,8 @@ for var in noise_levels:
         decode_items    = [np.concatenate(run) for run in items]
         
         RDMs = np.zeros((n_experiment_runs,4560))
-        for ii,(_features,_labels,_items) in enumerate(
-                zip(decode_features,decode_labels,decode_items)):
+        for ii,(_features,_labels,_items) in tqdm(enumerate(
+                zip(decode_features,decode_labels,decode_items)),desc = 'RDM'):
             if categorical:
                 _labels = _labels[:,-1]
             df_for_sort = pd.DataFrame(_items.reshape(-1,1),columns = ['items'])

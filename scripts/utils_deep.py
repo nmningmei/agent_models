@@ -558,7 +558,7 @@ def validation_loop_with_path(net,
         y_pred          = []
         y_true          = []
         features,labels,item = [],[],[]
-        for ii,(batch_features,batch_labels,batch_path) in tqdm(enumerate(dataloader)):
+        for ii,(batch_features,batch_labels,batch_path) in enumerate(dataloader):
             item.append([item.split('/')[-1].split('.')[0] for item in batch_path])
             if "Binary Cross Entropy" in loss_func.__doc__:
                 batch_labels = batch_labels.float()
@@ -722,6 +722,7 @@ def behavioral_evaluate_with_path(net,
     features: list of torch.autograd.Variables
     labels: list of torch.tensors
     """
+    from tqdm import tqdm
     if len(dataloader) > 100: # when the validation data is large
         small_dataset   = False
     # when the validation data is small
@@ -729,7 +730,7 @@ def behavioral_evaluate_with_path(net,
         y_preds,y_trues = [],[]
         features,labels = [],[]
         items = []
-        for n_run in range(n_experiment_runs):
+        for n_run in tqdm(range(n_experiment_runs)):
             _,y_pred,y_true,_features,_labels,_items= validation_loop_with_path(
                                 net,
                                 loss_func,
