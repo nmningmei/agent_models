@@ -91,7 +91,19 @@ print(f'device:{device}')
 noise_levels    = np.concatenate([[0],[item for item in np.logspace(-1,3,n_noise_levels)]])
 
 print(noise_levels)
-
+df_to_save = dict( model_name           = [],
+                   hidden_units         = [],
+                   hidden_activation    = [],
+                   output_activation    = [],
+                   noise_level          = [],
+                   score_mean           = [],
+                   score_std            = [],
+                   chance_mean          = [],
+                   chance_std           = [],
+                   model                = [],
+                   pval                 = [],
+                   dropout              = [],
+                   )
 for var in noise_levels:
     var = round(var,to_round)
     if True:#var not in np.array(df_to_save['noise_level']).round(to_round):
@@ -200,21 +212,27 @@ for var in noise_levels:
             RDMs[ii,:] = distance.pdist(temp - temp.mean(1).reshape(-1,1),'cosine')
         RDM_of_RDMs = distance.pdist(RDMs - RDMs.mean(1).reshape(-1,1),'cosine')
         
-        df_to_save = pd.DataFrame(RDM_of_RDMs.reshape(-1,1),columns = ['RDM'])
+#        df_to_save = pd.DataFrame(RDM_of_RDMs.reshape(-1,1),columns = ['RDM'])
         gc.collect()
-        df_to_save['model_name'        ]=pretrain_model_name
-        df_to_save['hidden_units'      ]=hidden_units
-        df_to_save['hidden_activation' ]=hidden_func_name
-        df_to_save['output_activation' ]=output_activation
-        df_to_save['noise_level'       ]=round(var,to_round)
-        df_to_save['score_mean'        ]=np.mean(scores)
-        df_to_save['score_std'         ]=np.std(scores)
-        df_to_save['chance_mean'       ]=.5
-        df_to_save['chance_std'        ]=0.
-        df_to_save['pval'              ]=pval
-        df_to_save['dropout'           ]=hidden_dropout
-        csv_name = f'stability_{var:1.3e}.csv'\
-        print(f'saving {csv_name}')
-        df_to_save.to_csv(os.path.join(results_dir,csv_name), index = False)
+        df_to_save['model_name'        ].append(pretrain_model_name)
+        df_to_save['hidden_units'      ].append(hidden_units)
+        df_to_save['hidden_activation' ].append(hidden_func_name)
+        df_to_save['output_activation' ].append(output_activation)
+        df_to_save['noise_level'       ].append(round(var,to_round))
+        df_to_save['score_mean'        ].append(np.mean(scores))
+        df_to_save['score_std'         ].append(np.std(scores))
+        df_to_save['chance_mean'       ].append(.5)
+        df_to_save['chance_std'        ].append(0.)
+        df_to_save['pval'              ].append(pval)
+        df_to_save['dropout'           ].append(hidden_dropout)
+        RDMs_name = f'stability_{var:1.3e}.npy'
+        performance_name = f'score{var:1.3e}.npy'
+        print(f'saving {RDMs_name}')
+        np.save(os.path.join(results_dir,model_saving_name,RDMs_name),
+                RDM_of_RDMs)
+        np.save(os.path.join(results_dir,model_saving_name,performance_name),
+                scores)
         gc.collect()
+        df_to_csv = pd.DataFrame(df_to_save)
+df_to_csv.to_sv(os.path.join(results_dir,model_saving_name,'other_info.csv,'),index = False)
 print('done')
