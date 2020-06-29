@@ -90,18 +90,13 @@ print(f'device:{device}')
 
 noise_levels    = np.concatenate([[0],[item for item in np.logspace(-1,3,n_noise_levels)]])
 
-
-csv_saving_name     = os.path.join(results_dir,model_saving_name,'performance_results.csv')
-
 print(noise_levels)
 
 for var in noise_levels:
     var = round(var,to_round)
-    if True:#var not in np.array(results['noise_level']).round(to_round):
+    if True:#var not in np.array(df_to_save['noise_level']).round(to_round):
         print(f'\nworking on {var:1.1e}')
-        noise_folder  = os.path.join(results_dir,model_saving_name,f'{var:1.1e}')
-        if not os.path.exists(noise_folder):
-            os.mkdir(noise_folder)
+        
 
         # define augmentation function + noise function
         augmentations = {
@@ -205,6 +200,21 @@ for var in noise_levels:
             RDMs[ii,:] = distance.pdist(temp - temp.mean(1).reshape(-1,1),'cosine')
         RDM_of_RDMs = distance.pdist(RDMs - RDMs.mean(1).reshape(-1,1),'cosine')
         
-        df_to_save = pd.DataFrame(RDM_of_RDMs.reshape(-1,1),colmns = ['RDM'])
-        df_to_save['noise_level'] = var
+        df_to_save = pd.DataFrame(RDM_of_RDMs.reshape(-1,1),columns = ['RDM'])
+        gc.collect()
+        df_to_save['model_name'        ]=pretrain_model_name
+        df_to_save['hidden_units'      ]=hidden_units
+        df_to_save['hidden_activation' ]=hidden_func_name
+        df_to_save['output_activation' ]=output_activation
+        df_to_save['noise_level'       ]=round(var,to_round)
+        df_to_save['score_mean'        ]=np.mean(scores)
+        df_to_save['score_std'         ]=np.std(scores)
+        df_to_save['chance_mean'       ]=.5
+        df_to_save['chance_std'        ]=0.
+        df_to_save['pval'              ]=pval
+        df_to_save['dropout'           ]=hidden_dropout
+        csv_name = f'stability_{var:1.3e}.csv'\
+        print(f'saving {csv_name}')
+        df_to_save.to_csv(os.path.join(results_dir,csv_name), index = False)
+        gc.collect()
 print('done')
