@@ -210,6 +210,7 @@ for var in noise_levels:
             idx_sort = df_for_sort.sort_values(['targets','subcategory','items']).index.values
             temp = _features[idx_sort]
             RDMs[ii,:] = distance.pdist(temp - temp.mean(1).reshape(-1,1),'cosine')
+        print('computing RDM of RDMs... ...')
         RDM_of_RDMs = distance.pdist(RDMs - RDMs.mean(1).reshape(-1,1),'cosine')
         
 #        df_to_save = pd.DataFrame(RDM_of_RDMs.reshape(-1,1),columns = ['RDM'])
