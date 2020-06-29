@@ -17,6 +17,5 @@ import pandas as pd
 import seaborn as sns
 
 working_dir = '../stability'
-working_data = glob(os.path.join(working_dir,'*','*.csv'))
+working_data = glob(os.path.join(working_dir,'*','stability*.npy'))
 
-df = pd.concat([pd.read_csv])

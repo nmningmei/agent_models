@@ -36,6 +36,7 @@ from matplotlib import pyplot as plt
 #plt.switch_backend('agg')
 
 from scipy.spatial import distance
+from joblib import Parallel, delayed
 
 print('set up random seeds')
 torch.manual_seed(12345)
@@ -141,7 +142,8 @@ for var in noise_levels:
         secondary_map = {}
         category_map = {}
         for item in glob(os.path.join(valid_root,"*","*","*.jpg")):
-            _,_,_,_category,_subcategory,_temp = item.split('/')
+            k = item.split('/')
+            _category,_subcategory,_temp = k[-3],k[-2],k[-1]
             secondary_map[_temp.split('.')[0]] = _subcategory
             category_map[_temp.split('.')[0]] = _category
         visualize_loader    = data_loader(
@@ -194,13 +196,23 @@ for var in noise_levels:
                                                  )
         
         # save the features and labels from the hidden layer
-        decode_features = [torch.cat(run).detach().cpu().numpy() for run in features]
-        decode_labels   = [torch.cat(run).detach().cpu().numpy() for run in labels]
-        decode_items    = [np.concatenate(run) for run in items]
+        if device == 'cpu':
+            gc.collect()
+            def _unpack(pack):
+                return torch.cat(pack).detach().cpu().numpy()
+            decode_features = Parallel(n_jobs =  -1,verbose = 1,)(delayed(_unpack)(**{
+                    'pack':run}) for run in features)
+            decode_labels   = Parallel(n_jobs =  -1,verbose = 1,)(delayed(_unpack)(**{
+                    'pack':run}) for run in labels)
+            decode_items    = Parallel(n_jobs =  -1,verbose = 1,)(delayed(_unpack)(**{
+                    'pack':run}) for run in items)
+        else:
+            decode_features = [torch.cat(run).detach().cpu().numpy() for run in features]
+            decode_labels   = [torch.cat(run).detach().cpu().numpy() for run in labels]
+            decode_items    = [np.concatenate(run) for run in items]
         
-        RDMs = np.zeros((n_experiment_runs,4560))
-        for ii,(_features,_labels,_items) in tqdm(enumerate(
-                zip(decode_features,decode_labels,decode_items)),desc = 'RDM'):
+        gc.collect()
+        def _process(_features,_labels,_items):
             if categorical:
                 _labels = _labels[:,-1]
             df_for_sort = pd.DataFrame(_items.reshape(-1,1),columns = ['items'])
@@ -209,7 +221,15 @@ for var in noise_levels:
             
             idx_sort = df_for_sort.sort_values(['targets','subcategory','items']).index.values
             temp = _features[idx_sort]
-            RDMs[ii,:] = distance.pdist(temp - temp.mean(1).reshape(-1,1),'cosine')
+            return distance.pdist(temp - temp.mean(1).reshape(-1,1),'cosine')
+        gc.collect()
+        RDMs = Parallel(n_jobs = -1,verbose = 1)(delayed(_process)(**{
+                '_features':_features,
+                '_labels':_labels,
+                '_items':_items}) for _features,_labels,_items in zip(decode_features,decode_labels,decode_items))
+        
+        RDMs = np.array(RDMs)
+        
         print('computing RDM of RDMs... ...')
         RDM_of_RDMs = distance.pdist(RDMs - RDMs.mean(1).reshape(-1,1),'cosine')
         
