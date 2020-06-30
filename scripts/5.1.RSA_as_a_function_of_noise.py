@@ -255,5 +255,5 @@ for var in noise_levels:
                 scores)
         gc.collect()
         df_to_csv = pd.DataFrame(df_to_save)
-df_to_csv.to_sv(os.path.join(results_dir,model_saving_name,'other_info.csv,'),index = False)
+df_to_csv.to_csv(os.path.join(results_dir,model_saving_name,'other_info.csv,'),index = False)
 print('done')

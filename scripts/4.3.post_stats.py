@@ -28,8 +28,16 @@ from sklearn.utils import shuffle as sk_shuffle
 from sklearn.inspection import permutation_importance
 
 sns.set_style('white')
-sns.set_context('poster',font_scale = 1.5,rc = {'weight' : 'bold'})
-
+sns.set_context('poster',font_scale = 1.5,)
+from matplotlib import rc
+rc('font',weight = 'bold')
+plt.rcParams['axes.labelsize'] = 45
+plt.rcParams['axes.labelweight'] = 'bold'
+plt.rcParams['axes.titlesize'] = 45
+plt.rcParams['axes.titleweight'] = 'bold'
+plt.rcParams['ytick.labelsize'] = 32
+plt.rcParams['xtick.labelsize'] = 32
+paper_dir = '/export/home/nmei/nmei/properties_of_unconscious_processing/figures'
 working_dir     = '../../another_git/agent_models/results'
 figure_dir      = '../figures'
 marker_factor   = 10
@@ -102,6 +110,43 @@ for attri,df_sub in tqdm(df_picked.groupby(col_indp),desc='generate features'):
         print('what?')
 df_stat = pd.DataFrame(df_stat)
 
+df_poor = df_stat[np.logical_and(df_stat['CNN_performance'].values > 0.5,
+                                 df_stat['CNN_pval'].values < 0.05)]
+a = df_poor['SVM_performance'].values
+b = df_poor['CNN_performance'].values
+diff = a - b
+t = diff.mean()
+null = diff - diff.mean()
+null_dist = np.array([np.random.choice(null,size=diff.shape[0],replace = True).mean() for _ in tqdm(range(int(1e5)))])
+p = ((np.sum(null_dist >= t)) + 1) /(null_dist.shape[0] + 1)
+
+fig,axes = plt.subplots(figsize = (24,12),ncols = 2)
+ax = axes[0]
+df_temp = pd.DataFrame(diff.reshape(-1,1),columns = ['SVM - CNN'])
+df_temp['x'] = 0
+ax = sns.violinplot(x = 'x',
+                    y = 'SVM - CNN',
+                    data = df_temp,
+                    cut = 0,
+                    inner = 'quartile',
+                    ax = ax,
+                    )
+ax.axhline(0,linestyle = '--',color = 'black',alpha = 0.6)
+ax.set_xlabel('');ax.set_xticklabels([])
+ax = axes[1]
+from collections import Counter
+temp = dict(Counter(df_poor['SVM_pval'] < 0.05))
+ax.bar(0,temp[True]/np.sum(list(temp.values())),color = 'green',)
+ax.bar(1,temp[False]/np.sum(list(temp.values())),color = 'red')
+ax.set(xticks = [0,1],ylabel = 'Proportion')
+ax.set_xticklabels(['p < 0.05','p >= 0.05'])
+fig.savefig(os.path.join(paper_dir,'diff of SVM and CNN.jpeg'),
+            dpi = 300,
+            bbox_inches = 'tight')
+# ax.set_ylabel('ROC AUC')
+# ax.get_legend().set_title("")
+# for obj,text in zip(ax.get_legend().get_texts(),['SVM decoding performance','CNN performance']):
+#     obj.set_text(text)
 
 df_chance = df_stat[df_stat['CNN_pval'] > 0.05]
 df_chance['diff'] = df_chance['SVM_performance'].values - df_chance['CNN_performance'].values
