@@ -133,7 +133,7 @@ dmypy.json
 *.pth
 
 # csv
-g.csv
+*.csv
 
 # npy
 *.npy
