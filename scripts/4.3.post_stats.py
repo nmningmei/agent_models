@@ -112,8 +112,8 @@ df_stat = pd.DataFrame(df_stat)
 
 df_poor = df_stat[np.logical_and(df_stat['CNN_performance'].values > 0.5,
                                  df_stat['CNN_pval'].values < 0.05)]
-a = df_poor['SVM_performance'].values
-b = df_poor['CNN_performance'].values
+a = df_stat['SVM_performance'].values
+b = df_stat['CNN_performance'].values
 diff = a - b
 t = diff.mean()
 null = diff - diff.mean()
@@ -135,7 +135,7 @@ ax.axhline(0,linestyle = '--',color = 'black',alpha = 0.6)
 ax.set_xlabel('');ax.set_xticklabels([])
 ax = axes[1]
 from collections import Counter
-temp = dict(Counter(df_poor['SVM_pval'] < 0.05))
+temp = dict(Counter(df_stat['SVM_pval'] < 0.05))
 ax.bar(0,temp[True]/np.sum(list(temp.values())),color = 'green',)
 ax.bar(1,temp[False]/np.sum(list(temp.values())),color = 'red')
 ax.set(xticks = [0,1],ylabel = 'Proportion')
@@ -151,6 +151,43 @@ fig.savefig(os.path.join(paper_dir,'diff of SVM and CNN.jpeg'),
 df_chance = df_stat[df_stat['CNN_pval'] > 0.05]
 df_chance['diff'] = df_chance['SVM_performance'].values - df_chance['CNN_performance'].values
 df_chance['labels'] = df_chance['SVM_pval'].apply(lambda x: x < 0.05)
+df_j= df_chance[df_chance['noise_level'] >= np.median(noise_levels)]
+
+a = df_j['SVM_performance'].values
+b = df_j['CNN_performance'].values
+diff = a - b
+t = diff.mean()
+null = diff - diff.mean()
+null_dist = np.array([np.random.choice(null,size=diff.shape[0],replace = True).mean() for _ in tqdm(range(int(1e5)))])
+p = ((np.sum(null_dist >= t)) + 1) /(null_dist.shape[0] + 1)
+
+fig,axes = plt.subplots(figsize = (24,12),ncols = 2)
+ax = axes[0]
+df_temp = pd.DataFrame(diff.reshape(-1,1),columns = ['SVM - CNN'])
+df_temp['x'] = 0
+df_temp['p < 0.05'] = df_j['SVM_pval'] < 0.05
+ax = sns.violinplot(x = 'x',
+                    y = 'SVM - CNN',
+                    hue = 'p < 0.05',
+                    data = df_temp,
+                    split = True, 
+                    cut = 0,
+                    inner = 'quartile',
+                    ax = ax,
+                    )
+ax.axhline(0,linestyle = '--',color = 'black',alpha = 0.6)
+ax.set_xlabel('');ax.set_xticklabels([])
+ax = axes[1]
+from collections import Counter
+temp = dict(Counter(df_j['SVM_pval'] < 0.05))
+ax.bar(0,temp[True]/np.sum(list(temp.values())),color = 'green',)
+ax.bar(1,temp[False]/np.sum(list(temp.values())),color = 'red')
+ax.set(xticks = [0,1],ylabel = 'Proportion')
+ax.set_xticklabels(['p < 0.05','p >= 0.05'])
+fig.savefig(os.path.join(paper_dir,'CNN chance noise high.jpeg'),
+            dpi = 400,
+            bbox_inches = 'tight')
+
 sns.relplot(x = 'noise_level',y = 'diff',hue = 'labels',data = df_chance)
 
 
