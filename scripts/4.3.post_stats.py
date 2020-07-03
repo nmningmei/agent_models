@@ -165,7 +165,7 @@ fig,axes = plt.subplots(figsize = (24,12),ncols = 2)
 ax = axes[0]
 df_temp = pd.DataFrame(diff.reshape(-1,1),columns = ['SVM - CNN'])
 df_temp['x'] = 0
-df_temp['p < 0.05'] = df_j['SVM_pval'] < 0.05
+df_temp['p < 0.05'] = df_j['SVM_pval'].values < 0.05
 ax = sns.violinplot(x = 'x',
                     y = 'SVM - CNN',
                     hue = 'p < 0.05',
@@ -185,6 +185,9 @@ ax.bar(1,temp[False]/np.sum(list(temp.values())),color = 'red')
 ax.set(xticks = [0,1],ylabel = 'Proportion')
 ax.set_xticklabels(['p < 0.05','p >= 0.05'])
 fig.savefig(os.path.join(paper_dir,'CNN chance noise high.jpeg'),
+            dpi = 400,
+            bbox_inches = 'tight')
+fig.savefig(os.path.join(figure_dir,'CNN chance noise high.jpeg'),
             dpi = 400,
             bbox_inches = 'tight')
 
