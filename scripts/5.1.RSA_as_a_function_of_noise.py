@@ -54,8 +54,8 @@ batch_size              = 8
 lr                      = 1e-4
 n_epochs                = int(1e3)
 device                  = 'cpu'
-pretrain_model_name     = 'vgg19'
-hidden_units            = 100
+pretrain_model_name     = 'mobilenet'
+hidden_units            = 2
 hidden_func_name        = 'relu'
 hidden_activation       = hidden_activation_functions(hidden_func_name)
 hidden_dropout          = 0.
@@ -248,11 +248,17 @@ for var in noise_levels:
         df_to_save['dropout'           ].append(hidden_dropout)
         RDMs_name = f'stability_{var:1.3e}.npy'
         performance_name = f'score{var:1.3e}.npy'
+        feature_name = f'feature_{var:1.3e}.npy'
+        label_name = f'label_{var:1.3e}.npy'
         print(f'saving {RDMs_name}')
         np.save(os.path.join(results_dir,model_saving_name,RDMs_name),
                 RDM_of_RDMs)
         np.save(os.path.join(results_dir,model_saving_name,performance_name),
                 scores)
+        np.save(os.path.join(results_dir,model_saving_name,feature_name),
+                decode_features)
+        np.save(os.path.join(results_dir,model_saving_name,label_name),
+                decode_labels)
         gc.collect()
         df_to_csv = pd.DataFrame(df_to_save)
 df_to_csv.to_csv(os.path.join(results_dir,model_saving_name,'other_info.csv,'),index = False)

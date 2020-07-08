@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Wed Jul  8 21:03:54 2020
 
@@ -95,7 +94,7 @@ for attri,df_sub in tqdm(df_picked.groupby(col_indp),desc='generate features'):
         # df_stat['SVM_performance'].append(0)
         # df_stat['SVM_pval'].append(1)
         pass
-    elif df_sub.shape[0] == > 1:
+    elif df_sub.shape[0] > 1:
         for model,df_sub_sub in df_sub.groupby('model'):
             if model == 'CNN':
                 [df_stat[col].append(df_sub[col].values[0]) for col in col_indp]
