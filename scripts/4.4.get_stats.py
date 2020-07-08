@@ -84,6 +84,7 @@ for col in col_indp:
 df_stat = {name:[] for name in col_indp}
 df_stat['CNN_performance'] = []
 df_stat['SVM_performance'] = []
+df_stat['CNN_chance_performance']= []
 df_stat['CNN_pval'] = []
 df_stat['SVM_pval'] = []
 for attri,df_sub in tqdm(df_picked.groupby(col_indp),desc='generate features'):
@@ -98,15 +99,20 @@ for attri,df_sub in tqdm(df_picked.groupby(col_indp),desc='generate features'):
         for model,df_sub_sub in df_sub.groupby('model'):
             if model == 'CNN':
                 [df_stat[col].append(df_sub[col].values[0]) for col in col_indp]
-                df_stat['CNN_performance'].append(df_sub['score_mean'].values[0])
-                df_stat['CNN_pval'].append(df_sub['pval'].values[0])
-                j = df_sub[df_sub['model'] == 'linear-SVM']
-                df_stat['SVM_performance'].append(j['score_mean'].values[0])
-                df_stat['SVM_pval'].append(j['pval'].values[0])
+                df_stat['CNN_performance'].append(df_sub_sub['score_mean'].values[0])
+                df_stat['CNN_pval'].append(df_sub_sub['pval'].values[0])
+                df_stat['CNN_chance_performance'].append(df_sub_sub['chance_mean'].values[0])
+                
             elif model == 'linear-SVM':
-                pass
+                df_stat['SVM_performance'].append(df_sub_sub['score_mean'].values[0])
+                df_stat['SVM_pval'].append(df_sub_sub['pval'].values[0])
     else:
         print('what?')
 df_stat = pd.DataFrame(df_stat)
 df_stat.to_csv(os.path.join(paper_dir,
                             'CNN_SVM_stats.csv'),index = False)
+
+df_chance = df_stat[np.logical_or(
+                        df_stat['CNN_pval'] > 0.05,
+                        df_stat['CNN_performance'] < df_stat['CNN_chance_performance'])
+                    ]

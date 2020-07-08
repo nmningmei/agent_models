@@ -34,7 +34,7 @@ plt.rcParams['axes.titleweight'] = 'bold'
 plt.rcParams['ytick.labelsize'] = 32
 plt.rcParams['xtick.labelsize'] = 32
 
-working_dir     = '../results'
+working_dir     = '../../another_git/agent_models/results'
 figure_dir      = '../figures'
 marker_factor   = 10
 marker_type     = ['8','s','p','*','+','D','o']
@@ -131,38 +131,60 @@ g.savefig(os.path.join(paper_dir,'CNN_performance.jpeg'),
           bbox_inches       = 'tight')
 
 # plot the decoding when CNN failed
-df_chance                   = []
-n_total                     = 0
-n_decode_total              = 0
-n_CNN_chance                = 0
-for attrs,df_sub in tqdm(df.groupby(['model_name',
-                                     'hidden_units',
-                                     'hidden_activation',
-                                     'output_activation',
-                                     'noise_level',
-                                     'drop',
-                                     ])):
-    n_total += 1
-    if (df_sub.shape[0] > 1):
-        df_cnn = df_sub[df_sub['model'] == 'CNN']
-        df_svm = df_sub[df_sub['model'] == 'linear-SVM']
-        n_decode_total += 1
-        if (df_cnn['pval'].values > 0.05):# and (df_svm['pval'].values < 0.05):
-            df_chance.append(df_sub)
-            n_CNN_chance += 1
-df_chance                   = pd.concat(df_chance)
+idxs            = np.logical_or(df['model'] == 'CNN',df['model'] == 'linear-SVM')
+df_picked       = df.loc[idxs,:]
+col_indp = ['hidden_units','hidden_activation','output_activation','noise_level','drop','model_name']
+for col in col_indp:
+    print(col, pd.unique(df_picked[col]))
+df_stat = {name:[] for name in col_indp}
+df_stat['CNN_performance'] = []
+df_stat['SVM_performance'] = []
+df_stat['CNN_chance_performance']= []
+df_stat['CNN_pval'] = []
+df_stat['SVM_pval'] = []
+for attri,df_sub in tqdm(df_picked.groupby(col_indp),desc='generate features'):
+    if df_sub.shape[0] == 1:
+        # [df_stat[col].append(df_sub[col].values[0]) for col in col_indp]
+        # df_stat['CNN_performance'].append(df_sub['score_mean'].values[0])
+        # df_stat['CNN_pval'].append(df_sub['pval'].values[0])
+        # df_stat['SVM_performance'].append(0)
+        # df_stat['SVM_pval'].append(1)
+        pass
+    elif df_sub.shape[0] > 1:
+        for model,df_sub_sub in df_sub.groupby('model'):
+            if model == 'CNN':
+                [df_stat[col].append(df_sub[col].values[0]) for col in col_indp]
+                df_stat['CNN_performance'].append(df_sub_sub['score_mean'].values[0])
+                df_stat['CNN_pval'].append(df_sub_sub['pval'].values[0])
+                df_stat['CNN_chance_performance'].append(df_sub_sub['chance_mean'].values[0])
+                
+            elif model == 'linear-SVM':
+                df_stat['SVM_performance'].append(df_sub_sub['score_mean'].values[0])
+                df_stat['SVM_pval'].append(df_sub_sub['pval'].values[0])
+    else:
+        print('what?')
+df_stat = pd.DataFrame(df_stat)
+df_stat.to_csv(os.path.join(paper_dir,
+                            'CNN_SVM_stats.csv'),index = False)
 
-idxs                            = np.logical_or(df_chance['model'] == 'CNN',df_chance['model'] == 'linear-SVM')
+df_chance = df_stat[np.logical_or(
+                        df_stat['CNN_pval'] > 0.05,
+                        df_stat['CNN_performance'] < df_stat['CNN_chance_performance'])
+                    ]
+
+
 df_plot                         = df_chance.copy()#loc[idxs,:]
-df_plot['Decode Above Chance']  = df_plot['pval'] < 0.05
+df_plot['Decode Above Chance']  = df_plot['SVM_pval'] < 0.05
 df_plot = df_plot.sort_values(['hidden_units','drop','model_name'])
 df_plot['hidden_units'] = df_plot['hidden_units'].astype('category')
 print(pd.unique(df_plot['hidden_units']))
 k                               = len(pd.unique(df_plot['hidden_units']))
+df_plot['x']                    = df_plot['noise_level'].round(9).map(x_map)
+df_plot['x']                    = df_plot['x'].apply(lambda x: [x + np.random.normal(0,0.1,size = 1)][0][0])
 
 g                               = sns.relplot(
                 x               = 'x',
-                y               = 'score_mean',
+                y               = 'SVM_performance',
                 size            = 'drop',
                 hue             = 'hidden_units',
                 hue_order       = pd.unique(df_plot['hidden_units']),
@@ -171,8 +193,9 @@ g                               = sns.relplot(
                 row             = 'model_name',
                 row_order       = ['alexnet','vgg19','mobilenet','densenet','resnet',],
                 alpha           = alpha_level,
-                data            = df_plot[df_plot['model'] == 'linear-SVM'],
+                data            = df_plot,
                 palette         = sns.color_palette("bright")[:k],
+                height          = 8,
                 aspect          = 4,
                 )
 (g.set_axis_labels('Noise Level','ROC AUC')
@@ -190,8 +213,7 @@ g                               = sns.relplot(
 
 temp = []
 for model_name,ax in zip(['alexnet','vgg19','mobilenet','densenet','resnet',],g.axes.flatten()):
-    df_sub = df_plot[df_plot['model'] == 'linear-SVM']
-    df_sub = df_sub[df_sub['model_name'] == model_name]
+    df_sub = df_plot[df_plot['model_name'] == model_name]
     df_sub['groups'] = df_sub['x'].apply(cut_bins)
     counter = df_sub.groupby(['groups','Decode Above Chance']).count().reset_index()[['groups','Decode Above Chance','x']]
     sum_of_group = counter['x'].values[::2] + counter['x'].values[1::2]

@@ -49,6 +49,9 @@ RDMs = np.sort(glob(os.path.join(working_dir,
                          'stability*.npy')))
 features = np.sort(glob(os.path.join(working_dir,
                                      'feature*.npy')))
+labels = np.sort(glob(os.path.join(working_dir,
+                                   'label*.npy')))
+
 
 df = dict(noise_level = [],
           score_mean = [],
