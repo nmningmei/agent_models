@@ -61,11 +61,14 @@ df = dict(noise_level = [],
           RDM_max = [],
           RDM_min = [],
           )
-for ii,(_score,_RDM,) in tqdm(enumerate(zip(scores,RDMs))):
+for ii,(_score,_RDM,_feature,_label) in tqdm(enumerate(zip(scores,RDMs,features,labels))):
     noise_level = float(_RDM.split('/')[-1].split('_')[-1].replace('.npy',''))
     
     score = np.load(_score)
     RDM = np.load(_RDM)
+    feature = np.load(_feature)
+    label = np.load(_label)
+    
     
     df['noise_level'].append(noise_level)
     df['score_mean'].append(score.mean())
@@ -111,7 +114,10 @@ ax.set(ylim = (0.4,1.2),
        ylabel = '1 - cosine')
 ax2.set(ylim = (0.4,1.2),
         ylabel = 'ROC AUC')
-
+fig.savefig(os.path.join(paper_dir,
+                         'CNN_stability.jpeg'),
+            dpi = 400,
+            bbox_inches = 'tight')
 
 
 

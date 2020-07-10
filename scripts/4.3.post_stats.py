@@ -85,6 +85,7 @@ for col in col_indp:
 df_stat = {name:[] for name in col_indp}
 df_stat['CNN_performance'] = []
 df_stat['SVM_performance'] = []
+df_stat['CNN_chance_performance']= []
 df_stat['CNN_pval'] = []
 df_stat['SVM_pval'] = []
 for attri,df_sub in tqdm(df_picked.groupby(col_indp),desc='generate features'):
@@ -95,65 +96,80 @@ for attri,df_sub in tqdm(df_picked.groupby(col_indp),desc='generate features'):
         # df_stat['SVM_performance'].append(0)
         # df_stat['SVM_pval'].append(1)
         pass
-    elif df_sub.shape[0] == > 1:
+    elif df_sub.shape[0] > 1:
         for model,df_sub_sub in df_sub.groupby('model'):
             if model == 'CNN':
                 [df_stat[col].append(df_sub[col].values[0]) for col in col_indp]
-                df_stat['CNN_performance'].append(df_sub['score_mean'].values[0])
-                df_stat['CNN_pval'].append(df_sub['pval'].values[0])
-                j = df_sub[df_sub['model'] == 'linear-SVM']
-                df_stat['SVM_performance'].append(j['score_mean'].values[0])
-                df_stat['SVM_pval'].append(j['pval'].values[0])
+                df_stat['CNN_performance'].append(df_sub_sub['score_mean'].values[0])
+                df_stat['CNN_pval'].append(df_sub_sub['pval'].values[0])
+                df_stat['CNN_chance_performance'].append(df_sub_sub['chance_mean'].values[0])
+                
             elif model == 'linear-SVM':
-                pass
+                df_stat['SVM_performance'].append(df_sub_sub['score_mean'].values[0])
+                df_stat['SVM_pval'].append(df_sub_sub['pval'].values[0])
     else:
         print('what?')
 df_stat = pd.DataFrame(df_stat)
 df_stat.to_csv(os.path.join(paper_dir,
                             'CNN_SVM_stats.csv'),index = False)
 
-df_poor = df_stat[np.logical_and(df_stat['CNN_performance'].values > 0.5,
-                                 df_stat['CNN_pval'].values < 0.05)]
-a = df_stat['SVM_performance'].values
-b = df_stat['CNN_performance'].values
-diff = a - b
-t = diff.mean()
-null = diff - diff.mean()
-null_dist = np.array([np.random.choice(null,size=diff.shape[0],replace = True).mean() for _ in tqdm(range(int(1e5)))])
-p = ((np.sum(null_dist >= t)) + 1) /(null_dist.shape[0] + 1)
+df_chance = df_stat[np.logical_or(
+                        df_stat['CNN_pval'] > 0.05,
+                        df_stat['CNN_performance'] < df_stat['CNN_chance_performance'])
+                    ]
 
-fig,axes = plt.subplots(figsize = (24,12),ncols = 2)
-ax = axes[0]
-df_temp = pd.DataFrame(diff.reshape(-1,1),columns = ['SVM - CNN'])
-df_temp['x'] = 0
-ax = sns.violinplot(x = 'x',
-                    y = 'SVM - CNN',
-                    data = df_temp,
-                    cut = 0,
-                    inner = 'quartile',
-                    ax = ax,
-                    )
-ax.axhline(0,linestyle = '--',color = 'black',alpha = 0.6)
-ax.set_xlabel('');ax.set_xticklabels([])
-ax = axes[1]
-from collections import Counter
-temp = dict(Counter(df_stat['SVM_pval'] < 0.05))
-ax.bar(0,temp[True]/np.sum(list(temp.values())),color = 'green',)
-ax.bar(1,temp[False]/np.sum(list(temp.values())),color = 'red')
-ax.set(xticks = [0,1],ylabel = 'Proportion')
-ax.set_xticklabels(['p < 0.05','p >= 0.05'])
-fig.savefig(os.path.join(paper_dir,'diff of SVM and CNN.jpeg'),
-            dpi = 300,
-            bbox_inches = 'tight')
+# df_poor = df_stat[np.logical_and(df_stat['CNN_performance'].values > 0.5,
+#                                  df_stat['CNN_pval'].values < 0.05)]
+# a = df_stat['SVM_performance'].values
+# b = df_stat['CNN_performance'].values
+# diff = a - b
+# t = diff.mean()
+# null = diff - diff.mean()
+# null_dist = np.array([np.random.choice(null,size=diff.shape[0],replace = True).mean() for _ in tqdm(range(int(1e5)))])
+# p = ((np.sum(null_dist >= t)) + 1) /(null_dist.shape[0] + 1)
+
+# fig,axes = plt.subplots(figsize = (24,12),ncols = 2)
+# ax = axes[0]
+# df_temp = pd.DataFrame(diff.reshape(-1,1),columns = ['SVM - CNN'])
+# df_temp['x'] = 0
+# ax = sns.violinplot(x = 'x',
+#                     y = 'SVM - CNN',
+#                     data = df_temp,
+#                     cut = 0,
+#                     inner = 'quartile',
+#                     ax = ax,
+#                     )
+# ax.axhline(0,linestyle = '--',color = 'black',alpha = 0.6)
+# ax.set_xlabel('');ax.set_xticklabels([])
+# ax = axes[1]
+# from collections import Counter
+# temp = dict(Counter(df_stat['SVM_pval'] < 0.05))
+# ax.bar(0,temp[True]/np.sum(list(temp.values())),color = 'green',)
+# ax.bar(1,temp[False]/np.sum(list(temp.values())),color = 'red')
+# ax.set(xticks = [0,1],ylabel = 'Proportion')
+# ax.set_xticklabels(['p < 0.05','p >= 0.05'])
+# fig.savefig(os.path.join(paper_dir,'diff of SVM and CNN.jpeg'),
+#             dpi = 300,
+#             bbox_inches = 'tight')
 # ax.set_ylabel('ROC AUC')
 # ax.get_legend().set_title("")
 # for obj,text in zip(ax.get_legend().get_texts(),['SVM decoding performance','CNN performance']):
 #     obj.set_text(text)
 
-df_chance = df_stat[df_stat['CNN_pval'] > 0.05]
+ps = {'chance_all':0,
+      'chance_high':0}
 df_chance['diff'] = df_chance['SVM_performance'].values - df_chance['CNN_performance'].values
 df_chance['labels'] = df_chance['SVM_pval'].apply(lambda x: x < 0.05)
 df_j= df_chance[df_chance['noise_level'] >= np.median(noise_levels)]
+
+a = df_chance['SVM_performance'].values
+b = df_chance['CNN_performance'].values
+diff = a - b
+t = diff.mean()
+null = diff - diff.mean()
+null_dist = np.array([np.random.choice(null,size=diff.shape[0],replace = True).mean() for _ in tqdm(range(int(1e5)))])
+p = ((np.sum(null_dist >= t)) + 1) /(null_dist.shape[0] + 1)
+ps['chance_all'] = p
 
 a = df_j['SVM_performance'].values
 b = df_j['CNN_performance'].values
@@ -162,15 +178,54 @@ t = diff.mean()
 null = diff - diff.mean()
 null_dist = np.array([np.random.choice(null,size=diff.shape[0],replace = True).mean() for _ in tqdm(range(int(1e5)))])
 p = ((np.sum(null_dist >= t)) + 1) /(null_dist.shape[0] + 1)
+ps['chance_high'] = p
 
 fig,axes = plt.subplots(figsize = (24,12),ncols = 2)
 ax = axes[0]
+a = df_chance['SVM_performance'].values
+b = df_chance['CNN_performance'].values
+diff = a - b
 df_temp = pd.DataFrame(diff.reshape(-1,1),columns = ['SVM - CNN'])
 df_temp['x'] = 0
+df_temp['noise_level'] = df_chance['noise_level'].values
+df_temp['p < 0.05'] = df_chance['SVM_pval'].values < 0.05
+ax = sns.violinplot(x = 'x',
+                    y = 'SVM - CNN',
+                    # hue = 'p < 0.05',
+                    data = df_temp,
+                    split = True, 
+                    cut = 0,
+                    inner = 'quartile',
+                    ax = ax,
+                    )
+ax.axhline(0,linestyle = '--',color = 'black',alpha = 0.6)
+ax.set_xlabel('');ax.set_xticklabels([])
+ax = axes[1]
+from collections import Counter
+temp = dict(Counter(df_chance['SVM_pval'] < 0.05))
+ax.bar(0,temp[True]/np.sum(list(temp.values())),color = 'green',)
+ax.bar(1,temp[False]/np.sum(list(temp.values())),color = 'red')
+ax.set(xticks = [0,1],ylabel = 'Proportion')
+ax.set_xticklabels(['p < 0.05','p >= 0.05'])
+fig.savefig(os.path.join(paper_dir,'CNN chance noise high.jpeg'),
+            dpi = 400,
+            bbox_inches = 'tight')
+fig.savefig(os.path.join(figure_dir,'CNN chance noise high.jpeg'),
+            dpi = 400,
+            bbox_inches = 'tight')
+
+fig,axes = plt.subplots(figsize = (24,12),ncols = 2)
+ax = axes[0]
+a = df_j['SVM_performance'].values
+b = df_j['CNN_performance'].values
+diff = a - b
+df_temp = pd.DataFrame(diff.reshape(-1,1),columns = ['SVM - CNN'])
+df_temp['x'] = 0
+df_temp['noise_level'] = df_j['noise_level'].values
 df_temp['p < 0.05'] = df_j['SVM_pval'].values < 0.05
 ax = sns.violinplot(x = 'x',
                     y = 'SVM - CNN',
-                    hue = 'p < 0.05',
+                    # hue = 'p < 0.05',
                     data = df_temp,
                     split = True, 
                     cut = 0,
@@ -192,7 +247,6 @@ fig.savefig(os.path.join(paper_dir,'CNN chance noise high.jpeg'),
 fig.savefig(os.path.join(figure_dir,'CNN chance noise high.jpeg'),
             dpi = 400,
             bbox_inches = 'tight')
-
 sns.relplot(x = 'noise_level',y = 'diff',hue = 'labels',data = df_chance)
 
 
@@ -221,8 +275,8 @@ features = df_chance[col_features].values
 X,y = sk_shuffle(features,labels)
 
 cv = StratifiedShuffleSplit(n_splits = 100,test_size = 0.2, random_state = 12345)
-rf = RandomForestClassifier(random_state = 12345,class_weight = 'balanced')
-logit = LogisticRegression(random_state = 12345,class_weight = 'balanced')
+rf = RandomForestClassifier(random_state = 12345,class_weight = 'balanced',n_jobs = 1)
+# logit = LogisticRegression(random_state = 12345,class_weight = 'balanced')
 pipeline = make_pipeline(preprocessing.StandardScaler(),
                          rf)
 cross_res = cross_validate(pipeline,
@@ -259,12 +313,14 @@ df_plot['Attributes'] = df_plot['Attributes'].map({'hidden_units':'Hidden Units'
                                                      'model_names':'Model Architecture'})
 fig,ax = plt.subplots(figsize = (10,6))
 ax = sns.barplot(y = 'Attributes',x = 'Feature Importance',data= df_plot,ax = ax)
+df_plot.to_csv(os.path.join(paper_dir.replace('figures','stats'),
+                            'feature_importance.csv'),index=False)
 fig.savefig(os.path.join(figure_dir,'feature importance.jpeg'),dpi = 300,bbox_inches = 'tight')
 
 from collections import Counter
 from scipy import stats
 x = np.linspace(0, 1, 1000)
-alpha,beta = .1,2
+alpha,beta = 1.1,1.1
 aspects = {'hidden_units':.0025,
         'hidden_activation':.003,
         'output_activation':.001,
