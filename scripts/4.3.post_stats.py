@@ -110,7 +110,7 @@ for attri,df_sub in tqdm(df_picked.groupby(col_indp),desc='generate features'):
     else:
         print('what?')
 df_stat = pd.DataFrame(df_stat)
-df_stat.to_csv(os.path.join(paper_dir,
+df_stat.to_csv(os.path.join(paper_dir.replace('figures','stats'),
                             'CNN_SVM_stats.csv'),index = False)
 
 df_chance = df_stat[np.logical_or(
@@ -207,10 +207,10 @@ ax.bar(0,temp[True]/np.sum(list(temp.values())),color = 'green',)
 ax.bar(1,temp[False]/np.sum(list(temp.values())),color = 'red')
 ax.set(xticks = [0,1],ylabel = 'Proportion')
 ax.set_xticklabels(['p < 0.05','p >= 0.05'])
-fig.savefig(os.path.join(paper_dir,'CNN chance noise high.jpeg'),
+fig.savefig(os.path.join(paper_dir,'CNN chance noise all.jpeg'),
             dpi = 400,
             bbox_inches = 'tight')
-fig.savefig(os.path.join(figure_dir,'CNN chance noise high.jpeg'),
+fig.savefig(os.path.join(figure_dir,'CNN chance noise all.jpeg'),
             dpi = 400,
             bbox_inches = 'tight')
 
@@ -316,17 +316,18 @@ ax = sns.barplot(y = 'Attributes',x = 'Feature Importance',data= df_plot,ax = ax
 df_plot.to_csv(os.path.join(paper_dir.replace('figures','stats'),
                             'feature_importance.csv'),index=False)
 fig.savefig(os.path.join(figure_dir,'feature importance.jpeg'),dpi = 300,bbox_inches = 'tight')
+fig.savefig(os.path.join(paper_dir,'feature importance.jpeg'),dpi = 300,bbox_inches = 'tight')
 
 from collections import Counter
 from scipy import stats
-x = np.linspace(0, 1, 1000)
-alpha,beta = 1.1,1.1
-aspects = {'hidden_units':.0025,
-        'hidden_activation':.003,
-        'output_activation':.001,
-        'noise_level':0.02,
-        'drop':.002,
-        'model_name':.002}
+x = np.linspace(0, 1, 100)
+alpha,beta = 1.001,1.001
+aspects = {'hidden_units':.025,
+        'hidden_activation':.03,
+        'output_activation':.01,
+        'noise_level':0.2,
+        'drop':.02,
+        'model_name':.02}
 fig,axes = plt.subplots(figsize = (25*2,8*3),
                       nrows = 2,
                       ncols = 3)
@@ -380,7 +381,7 @@ for ax,(groupby,factor_name) in zip(axes.flatten(),{'hidden_units':'Hidden Units
     output_activation
     ax.set(xticks = xticks,
            # xticklabels = xticklabels,
-           yticks = [0,250,500,750,1000],
+           yticks = [0,25,50,75,100],
            yticklabels = [0,0.25,0.5,0.75,1],
            xlabel = factor_name,
            ylabel = 'Probability',
@@ -390,5 +391,8 @@ fig.tight_layout()
 fig.colorbar(im, ax=axes.ravel().tolist())
 fig.suptitle('Probablity of the SVM being able to decode the CNN when CNN performs at chance level')
 fig.savefig(os.path.join(figure_dir,'Probablity of the SVM being able to decode the CNN when CNN performs at chance level,jpeg'),
+            dpi = 400,
+            bbox_inches = 'tight')
+fig.savefig(os.path.join(paper_dir,'Probablity.png'),
             dpi = 400,
             bbox_inches = 'tight')
