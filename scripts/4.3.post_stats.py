@@ -189,8 +189,9 @@ df_temp = pd.DataFrame(diff.reshape(-1,1),columns = ['SVM - CNN'])
 df_temp['x'] = 0
 df_temp['noise_level'] = df_chance['noise_level'].values
 df_temp['p < 0.05'] = df_chance['SVM_pval'].values < 0.05
+df_temp['SVM_performance'] = a
 ax = sns.violinplot(x = 'x',
-                    y = 'SVM - CNN',
+                    y = 'SVM_performance',
                     # hue = 'p < 0.05',
                     data = df_temp,
                     split = True, 
@@ -198,7 +199,8 @@ ax = sns.violinplot(x = 'x',
                     inner = 'quartile',
                     ax = ax,
                     )
-ax.axhline(0,linestyle = '--',color = 'black',alpha = 0.6)
+ax.axhline(0.5,linestyle = '--',color = 'black',alpha = 0.6)
+ax.set_ylabel('ROC AUC')
 ax.set_xlabel('');ax.set_xticklabels([])
 ax = axes[1]
 from collections import Counter
@@ -206,7 +208,7 @@ temp = dict(Counter(df_chance['SVM_pval'] < 0.05))
 ax.bar(0,temp[True]/np.sum(list(temp.values())),color = 'green',)
 ax.bar(1,temp[False]/np.sum(list(temp.values())),color = 'red')
 ax.set(xticks = [0,1],ylabel = 'Proportion')
-ax.set_xticklabels(['p < 0.05','p >= 0.05'])
+ax.set_xticklabels(['Decodable','Not decodable'])
 fig.savefig(os.path.join(paper_dir,'CNN chance noise all.jpeg'),
             dpi = 400,
             bbox_inches = 'tight')
@@ -223,8 +225,9 @@ df_temp = pd.DataFrame(diff.reshape(-1,1),columns = ['SVM - CNN'])
 df_temp['x'] = 0
 df_temp['noise_level'] = df_j['noise_level'].values
 df_temp['p < 0.05'] = df_j['SVM_pval'].values < 0.05
+df_temp['SVM_performance'] = a
 ax = sns.violinplot(x = 'x',
-                    y = 'SVM - CNN',
+                    y = 'SVM_performance',
                     # hue = 'p < 0.05',
                     data = df_temp,
                     split = True, 
@@ -232,7 +235,8 @@ ax = sns.violinplot(x = 'x',
                     inner = 'quartile',
                     ax = ax,
                     )
-ax.axhline(0,linestyle = '--',color = 'black',alpha = 0.6)
+ax.axhline(0.5,linestyle = '--',color = 'black',alpha = 0.6)
+ax.set_ylabel('ROC AUC')
 ax.set_xlabel('');ax.set_xticklabels([])
 ax = axes[1]
 from collections import Counter
@@ -240,14 +244,14 @@ temp = dict(Counter(df_j['SVM_pval'] < 0.05))
 ax.bar(0,temp[True]/np.sum(list(temp.values())),color = 'green',)
 ax.bar(1,temp[False]/np.sum(list(temp.values())),color = 'red')
 ax.set(xticks = [0,1],ylabel = 'Proportion')
-ax.set_xticklabels(['p < 0.05','p >= 0.05'])
+ax.set_xticklabels(['Decodable','Not decodable'])
 fig.savefig(os.path.join(paper_dir,'CNN chance noise high.jpeg'),
             dpi = 400,
             bbox_inches = 'tight')
 fig.savefig(os.path.join(figure_dir,'CNN chance noise high.jpeg'),
             dpi = 400,
             bbox_inches = 'tight')
-sns.relplot(x = 'noise_level',y = 'diff',hue = 'labels',data = df_chance)
+# sns.relplot(x = 'noise_level',y = 'diff',hue = 'labels',data = df_chance)
 
 
 le = preprocessing.LabelEncoder()
@@ -318,81 +322,81 @@ df_plot.to_csv(os.path.join(paper_dir.replace('figures','stats'),
 fig.savefig(os.path.join(figure_dir,'feature importance.jpeg'),dpi = 300,bbox_inches = 'tight')
 fig.savefig(os.path.join(paper_dir,'feature importance.jpeg'),dpi = 300,bbox_inches = 'tight')
 
-from collections import Counter
-from scipy import stats
-x = np.linspace(0, 1, 100)
-alpha,beta = 1.001,1.001
-aspects = {'hidden_units':.025,
-        'hidden_activation':.03,
-        'output_activation':.01,
-        'noise_level':0.2,
-        'drop':.02,
-        'model_name':.02}
-fig,axes = plt.subplots(figsize = (25*2,8*3),
-                      nrows = 2,
-                      ncols = 3)
-for ax,(groupby,factor_name) in zip(axes.flatten(),{'hidden_units':'Hidden Units',
-                            'hidden_activation':'Hidden Activation Function',
-                            'output_activation':'Output Activation Function',
-                            'noise_level':'Noise Level',
-                            'drop':'Dropout Rate',
-                            'model_name':'Model Architecture'}.items()):
-    x_plot = []
-    y_plot = []
-    aspect = aspects[groupby]
-    for noise_level,df_sub in df_chance.groupby([groupby]):
-        if df_sub.shape[0] > 5:
-            labels = df_sub['labels'].values.astype(int)
-            counts = dict(Counter(labels))
-            y = stats.beta.pdf(x,counts[1] + alpha, counts[0] + beta)
-            y /= np.linalg.norm(y)
-            x_plot.append(noise_level)
-            y_plot.append(y)
-    x_plot = np.array(x_plot)
-    y_plot = np.array(y_plot)
+# from collections import Counter
+# from scipy import stats
+# x = np.linspace(0, 1, 100)
+# alpha,beta = 1.001,1.001
+# aspects = {'hidden_units':.025,
+#         'hidden_activation':.03,
+#         'output_activation':.01,
+#         'noise_level':0.2,
+#         'drop':.02,
+#         'model_name':.02}
+# fig,axes = plt.subplots(figsize = (25*2,8*3),
+#                       nrows = 2,
+#                       ncols = 3)
+# for ax,(groupby,factor_name) in zip(axes.flatten(),{'hidden_units':'Hidden Units',
+#                             'hidden_activation':'Hidden Activation Function',
+#                             'output_activation':'Output Activation Function',
+#                             'noise_level':'Noise Level',
+#                             'drop':'Dropout Rate',
+#                             'model_name':'Model Architecture'}.items()):
+#     x_plot = []
+#     y_plot = []
+#     aspect = aspects[groupby]
+#     for noise_level,df_sub in df_chance.groupby([groupby]):
+#         if df_sub.shape[0] > 5:
+#             labels = df_sub['labels'].values.astype(int)
+#             counts = dict(Counter(labels))
+#             y = stats.beta.pdf(x,counts[1] + alpha, counts[0] + beta)
+#             y /= np.linalg.norm(y)
+#             x_plot.append(noise_level)
+#             y_plot.append(y)
+#     x_plot = np.array(x_plot)
+#     y_plot = np.array(y_plot)
 
 
-    im = ax.imshow(y_plot.T,
-                   origin = 'lower',
-                   aspect = aspect,
-                   cmap = plt.cm.coolwarm,
-                   interpolation = 'hamming',
-                   vmin = -.15,
-                   vmax = .15,)
-    if groupby == 'noise_level':
-        xticks = np.concatenate([np.arange(x_plot.shape[0])[::8],[np.arange(x_plot.shape[0])[-1]]])
-        xticklabels = [f'{item:.2f}' for item in np.concatenate([x_plot[::8],[int(x_plot[-1])]])]
-    elif groupby == 'hidden_units':
-        xticks = np.arange(pd.unique(df_chance[groupby]).shape[0])
-        xticklabels = pd.unique(df_chance[groupby])
-    elif groupby == 'drop':
-        xticks = np.arange(pd.unique(df_chance[groupby]).shape[0])
-        xticklabels = pd.unique(df_chance[groupby])
-    elif groupby == 'hidden_activation':
-        xticks = np.arange(pd.unique(df_chance[groupby]).shape[0])
-        xticklabels = pd.unique(df_chance[groupby])
-    elif groupby == 'output_activation':
-        xticks = np.arange(pd.unique(df_chance[groupby]).shape[0])
-        xticklabels = pd.unique(df_chance[groupby])
-    elif groupby == 'model_name':
-        xticks = np.arange(pd.unique(df_chance[groupby]).shape[0])
-        xticklabels = pd.unique(df_chance[groupby])
+#     im = ax.imshow(y_plot.T,
+#                    origin = 'lower',
+#                    aspect = aspect,
+#                    cmap = plt.cm.coolwarm,
+#                    interpolation = 'hamming',
+#                    vmin = -.15,
+#                    vmax = .15,)
+#     if groupby == 'noise_level':
+#         xticks = np.concatenate([np.arange(x_plot.shape[0])[::8],[np.arange(x_plot.shape[0])[-1]]])
+#         xticklabels = [f'{item:.2f}' for item in np.concatenate([x_plot[::8],[int(x_plot[-1])]])]
+#     elif groupby == 'hidden_units':
+#         xticks = np.arange(pd.unique(df_chance[groupby]).shape[0])
+#         xticklabels = pd.unique(df_chance[groupby])
+#     elif groupby == 'drop':
+#         xticks = np.arange(pd.unique(df_chance[groupby]).shape[0])
+#         xticklabels = pd.unique(df_chance[groupby])
+#     elif groupby == 'hidden_activation':
+#         xticks = np.arange(pd.unique(df_chance[groupby]).shape[0])
+#         xticklabels = pd.unique(df_chance[groupby])
+#     elif groupby == 'output_activation':
+#         xticks = np.arange(pd.unique(df_chance[groupby]).shape[0])
+#         xticklabels = pd.unique(df_chance[groupby])
+#     elif groupby == 'model_name':
+#         xticks = np.arange(pd.unique(df_chance[groupby]).shape[0])
+#         xticklabels = pd.unique(df_chance[groupby])
 
-    output_activation
-    ax.set(xticks = xticks,
-           # xticklabels = xticklabels,
-           yticks = [0,25,50,75,100],
-           yticklabels = [0,0.25,0.5,0.75,1],
-           xlabel = factor_name,
-           ylabel = 'Probability',
-           )
-    ax.set_xticklabels(xticklabels,rotation = 45,ha = 'center')
-fig.tight_layout()
-fig.colorbar(im, ax=axes.ravel().tolist())
-fig.suptitle('Probablity of the SVM being able to decode the CNN when CNN performs at chance level')
-fig.savefig(os.path.join(figure_dir,'Probablity of the SVM being able to decode the CNN when CNN performs at chance level,jpeg'),
-            dpi = 400,
-            bbox_inches = 'tight')
-fig.savefig(os.path.join(paper_dir,'Probablity.png'),
-            dpi = 400,
-            bbox_inches = 'tight')
+#     output_activation
+#     ax.set(xticks = xticks,
+#            # xticklabels = xticklabels,
+#            yticks = [0,25,50,75,100],
+#            yticklabels = [0,0.25,0.5,0.75,1],
+#            xlabel = factor_name,
+#            ylabel = 'Probability',
+#            )
+#     ax.set_xticklabels(xticklabels,rotation = 45,ha = 'center')
+# fig.tight_layout()
+# fig.colorbar(im, ax=axes.ravel().tolist())
+# fig.suptitle('Probablity of the SVM being able to decode the CNN when CNN performs at chance level')
+# fig.savefig(os.path.join(figure_dir,'Probablity of the SVM being able to decode the CNN when CNN performs at chance level,jpeg'),
+#             dpi = 400,
+#             bbox_inches = 'tight')
+# fig.savefig(os.path.join(paper_dir,'Probablity.png'),
+#             dpi = 400,
+#             bbox_inches = 'tight')
