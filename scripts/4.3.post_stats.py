@@ -316,7 +316,7 @@ df_plot['Attributes'] = df_plot['Attributes'].map({'hidden_units':'Hidden Units'
                                                      'drop':'Dropout Rate',
                                                      'model_names':'Model Architecture'})
 fig,ax = plt.subplots(figsize = (10,6))
-ax = sns.barplot(y = 'Attributes',x = 'Feature Importance',data= df_plot,ax = ax)
+ax = sns.violinplot(y = 'Attributes',x = 'Feature Importance',data= df_plot,ax = ax)
 df_plot.to_csv(os.path.join(paper_dir.replace('figures','stats'),
                             'feature_importance.csv'),index=False)
 fig.savefig(os.path.join(figure_dir,'feature importance.jpeg'),dpi = 300,bbox_inches = 'tight')
