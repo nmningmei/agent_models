@@ -129,6 +129,9 @@ g.savefig(os.path.join(figure_dir,'CNN_performance (light).jpeg'),
 g.savefig(os.path.join(paper_dir,'CNN_performance.jpeg'),
           dpi               = 300,
           bbox_inches       = 'tight')
+g.savefig(os.path.join(paper_dir,'CNN_performance_light.jpeg'),
+#          dpi               = 300,
+          bbox_inches       = 'tight')
 
 # plot the decoding when CNN failed
 idxs            = np.logical_or(df['model'] == 'CNN',df['model'] == 'linear-SVM')
@@ -231,10 +234,11 @@ for model_name,ax in zip(['alexnet','vgg19','mobilenet','densenet','resnet',],g.
                           hue_order = [True,False],
                           data = counter,
                           ax = tiny_ax,
+                          palette = ['green','red'],
                           )
     # tiny_ax.set(xticklabels = ['low','medium','high'],
-    tiny_ax.set_xlabel('')
-    tiny_ax.set_ylabel('')
+    tiny_ax.set_xlabel('Noise level',fontsize = 18)
+    tiny_ax.set_ylabel('Decoding rate',fontsize = 18)
     tiny_handles,tiny_labels = tiny_ax.get_legend_handles_labels()
     tiny_ax.get_legend().remove()
     
@@ -263,6 +267,9 @@ g.savefig(os.path.join(figure_dir,'decoding_performance (light).jpeg'),
           bbox_inches = 'tight')
 g.savefig(os.path.join(paper_dir,'decoding_performance.jpeg'),
           dpi = 300,
+          bbox_inches = 'tight')
+g.savefig(os.path.join(paper_dir,'decoding_performance_light.jpeg'),
+#          dpi = 300,
           bbox_inches = 'tight')
 
 #fig,axes = plt.subplots(figsize = (70,40),
