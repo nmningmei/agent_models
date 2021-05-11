@@ -21,11 +21,13 @@ from tqdm import tqdm
 
 from utils_deep import (hidden_activation_functions,
                         build_model,
+                        simple_augmentations,
                         createLossAndOptimizer,
                         train_and_validation,
                         data_loader,
                         validation_loop,
-                        Find_Optimal_Cutoff
+                        decode_and_visualize_hidden_representations,
+                        noise_fuc
                         )
 
 from matplotlib import pyplot as plt
@@ -48,9 +50,9 @@ batch_size              = 8
 lr                      = 1e-4
 n_epochs                = int(1e3)
 device                  = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-pretrain_model_name     = 'resnet18'
-hidden_units            = 2
-hidden_func_name        = 'sigmoid'
+pretrain_model_name     = 'resnet50'
+hidden_units            = 300
+hidden_func_name        = 'selu'
 hidden_activation       = hidden_activation_functions(hidden_func_name)
 hidden_dropout          = 0. # in this experiment, we should not have any dropouts because I cannot solve the math...
 patience                = 5
@@ -59,10 +61,10 @@ model_saving_name       = f'{pretrain_model_name}_{hidden_units}_{hidden_func_na
 testing                 = True #
 n_experiment_runs       = 1000
 
-n_noise_levels          = 50
-n_keep_going            = 32
-start_decoding          = False
-to_round                = 9
+# n_noise_levels          = 50
+# n_keep_going            = 32
+# start_decoding          = False
+# to_round                = 9
 
 results_dir             = '../results/RL'
 if not os.path.exists(results_dir):
@@ -112,20 +114,14 @@ model_to_train = train_and_validation(
 model_to_train = model_to_train.to('cpu')
 
 # test the model on augmented images, no noise added
-transform_steps = transforms.Compose([
-    transforms.Resize((image_resize,image_resize)),
-    transforms.RandomHorizontalFlip(p = 0.5),
-    transforms.RandomRotation(45,),
-    transforms.RandomVerticalFlip(p = 0.5,),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ])
+transform_steps = simple_augmentations(image_resize,noise_level = None,)
 DataLoader = data_loader(
     train_root,
     augmentations   = transform_steps,
     batch_size      = batch_size,
     )
 
+# get the hidden representations
 valid_loss,y_pred,y_true,features,labels = validation_loop(
     model_to_train,
     loss_func,
@@ -137,20 +133,59 @@ features = torch.cat(features).detach().cpu().numpy()
 y_true = torch.cat(y_true).detach().cpu().numpy()
 y_pred = torch.cat(y_pred).detach().cpu().numpy()
 
-thr = Find_Optimal_Cutoff(y_true[:,-1],y_pred[:,-1])
-print(metrics.classification_report(y_true[:,-1],y_pred[:,-1]>=thr[0]))
 
+# visualize the hidden representations
+fig,axes = plt.subplots(figsize = (8,12),
+                        nrows = 2,
+                        sharex = False,
+                        sharey = False,
+                        )
+fig = decode_and_visualize_hidden_representations(
+    fig,
+    axes,
+    y_true,
+    y_pred,
+    features,
+    hidden_units = hidden_units,
+    )
+fig.tight_layout()
 
+# test the model on augmented images, #####noise added####
+noise_level = np.log(12)
+transform_steps = simple_augmentations(image_resize,noise_level = noise_level)
+DataLoader = data_loader(
+    train_root,
+    augmentations   = transform_steps,
+    batch_size      = batch_size,
+    )
 
+# get the hidden representations
+valid_loss,y_pred,y_true,features,labels = validation_loop(
+    model_to_train,
+    loss_func,
+    DataLoader,
+    'cpu',
+    categorical = categorical,
+    output_activation = output_activation,)
+features = torch.cat(features).detach().cpu().numpy()
+y_true = torch.cat(y_true).detach().cpu().numpy()
+y_pred = torch.cat(y_pred).detach().cpu().numpy()
 
-
-
-
-
-
-
-
-
+# visualize the hidden representations
+fig,axes = plt.subplots(figsize = (8,12),
+                        nrows = 2,
+                        sharex = False,
+                        sharey = False,
+                        )
+fig = decode_and_visualize_hidden_representations(
+    fig,
+    axes,
+    y_true,
+    y_pred,
+    features,
+    hidden_units = hidden_units,
+    )
+fig.tight_layout()
 
 
 

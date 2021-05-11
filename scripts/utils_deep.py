@@ -27,6 +27,7 @@ import torchvision.models as Tmodels
 from sklearn import metrics
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import LinearSVC,SVC
+from sklearn.decomposition import PCA
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import StratifiedShuffleSplit,cross_validate,permutation_test_score
 from sklearn.calibration import CalibratedClassifierCV
@@ -99,6 +100,26 @@ def output_activation_functions(activation_func_name):
                  )
     return funcs[activation_func_name]
 
+def simple_augmentations(image_resize = 128,noise_level = None):
+    if noise_level is not None:
+        return transforms.Compose([
+    transforms.Resize((image_resize,image_resize)),
+    transforms.RandomHorizontalFlip(p = 0.5),
+    transforms.RandomRotation(45,),
+    transforms.RandomVerticalFlip(p = 0.5,),
+    transforms.ToTensor(),
+    transforms.Lambda(lambda x:noise_fuc(x,noise_level)),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
+    else:
+        return transforms.Compose([
+    transforms.Resize((image_resize,image_resize)),
+    transforms.RandomHorizontalFlip(p = 0.5),
+    transforms.RandomRotation(45,),
+    transforms.RandomVerticalFlip(p = 0.5,),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
 class customizedDataset(ImageFolder):
     def __getitem__(self, idx):
         original_tuple  = super(customizedDataset,self).__getitem__(idx)
@@ -656,22 +677,8 @@ def train_and_validation(
     elif output_activation == 'sigmoid':
         categorical         = False
     augmentations = {
-            'train':transforms.Compose([
-            transforms.Resize((image_resize,image_resize)),
-            transforms.RandomHorizontalFlip(p = 0.5),
-            transforms.RandomRotation(45,),
-            transforms.RandomVerticalFlip(p = 0.5,),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-            ]),
-            'valid':transforms.Compose([
-            transforms.Resize((image_resize,image_resize)),
-            transforms.RandomHorizontalFlip(p = 0.5),
-            transforms.RandomRotation(45,),
-            transforms.RandomVerticalFlip(p = 0.5,),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-            ]),
+            'train':simple_augmentations(image_resize,noise_level = None),
+            'valid':simple_augmentations(image_resize,noise_level = None),
         }
     
     train_loader        = data_loader(
@@ -687,36 +694,36 @@ def train_and_validation(
     
     
     model_to_train.to(device)
-    model_parameters                            = filter(lambda p: p.requires_grad, model_to_train.parameters())
+    model_parameters    = filter(lambda p: p.requires_grad, model_to_train.parameters())
     if print_train:
-        params                                  = sum([np.prod(p.size()) for p in model_parameters])
+        params          = sum([np.prod(p.size()) for p in model_parameters])
         print(f'total params: {params:d}')
     
-    best_valid_loss                             = torch.tensor(float('inf'),dtype = torch.float64)
+    best_valid_loss     = torch.tensor(float('inf'),dtype = torch.float64)
     losses = []
     for idx_epoch in range(n_epochs):
         # train
         print('\ntraining ...')
-        _                              = train_loop(
-                                                    net                 = model_to_train,
-                                                    loss_func           = loss_func,
-                                                    optimizer           = optimizer,
-                                                    dataloader          = train_loader,
-                                                    device              = device,
-                                                    categorical         = categorical,
-                                                    idx_epoch           = idx_epoch,
-                                                    print_train         = print_train,
-                                                    output_activation   = output_activation,
-                                                    )
+        _               = train_loop(
+        net                 = model_to_train,
+        loss_func           = loss_func,
+        optimizer           = optimizer,
+        dataloader          = train_loader,
+        device              = device,
+        categorical         = categorical,
+        idx_epoch           = idx_epoch,
+        print_train         = print_train,
+        output_activation   = output_activation,
+        )
         print('\nvalidating ...')
         valid_loss,y_pred,y_true,features,labels= validation_loop(
-                                                    net                 = model_to_train,
-                                                    loss_func           = loss_func,
-                                                    dataloader          = valid_loader,
-                                                    device              = device,
-                                                    categorical         = categorical,
-                                                    output_activation   = output_activation,
-                                                    )
+        net                 = model_to_train,
+        loss_func           = loss_func,
+        dataloader          = valid_loader,
+        device              = device,
+        categorical         = categorical,
+        output_activation   = output_activation,
+        )
         y_pred = torch.cat(y_pred)
         y_true = torch.cat(y_true)
         score = metrics.roc_auc_score(y_true.detach().cpu(),y_pred.detach().cpu())
@@ -1169,3 +1176,51 @@ def Find_Optimal_Cutoff(target, predicted):
 
     return list(roc_t['threshold']) 
 
+def decode_and_visualize_hidden_representations(fig,axes,
+                                                y_true,y_pred,features,
+                                                hidden_units = 2,):
+    # visualize the hidden representations
+    import gc
+    import seaborn as sns
+    if len(y_true.shape) == 2:
+        y_true = y_true[:,-1]
+        y_pred = y_pred[:,-1]
+    if hidden_units == 2:
+        thr = Find_Optimal_Cutoff(y_true,y_pred)
+        print(metrics.classification_report(y_true,y_pred>=thr[0]))
+        ax = axes.flatten()[0]
+        sns.scatterplot(x = features[:,0], y = features[:,1],hue = y_true,ax = ax,)
+        ax.set(xlabel = 'feature 1',
+               ylabel = 'feature 2',
+               title = 'hidden representations',)
+        
+        gc.collect()
+        svm = make_decoder('linear-SVM')
+        X,y = features.copy(),y_true.copy()
+        cv = StratifiedShuffleSplit(n_splits = 300, test_size = 0.2, random_state = 12345)
+        res = cross_validate(svm,X,y, cv = cv,scoring = 'roc_auc',n_jobs = -1, verbose = 0)
+        gc.collect()
+        ax = axes.flatten()[-1]
+        ax.hist(res['test_score'])
+        ax.set(title = 'decoding scores from decoding the hidden layer')
+    else:
+        
+        features_pca = PCA(n_components = 2,random_state = 12345).fit_transform(features)
+        thr = Find_Optimal_Cutoff(y_true,y_pred)
+        print(metrics.classification_report(y_true,y_pred>=thr[0]))
+        ax = axes.flatten()[0]
+        sns.scatterplot(x = features_pca[:,0], y = features_pca[:,1],hue = y_true,ax = ax,)
+        ax.set(xlabel = 'PC 1',
+               ylabel = 'PC 2',
+               title = 'PCA of hidden representations',)
+        
+        gc.collect()
+        svm = make_decoder('linear-SVM')
+        X,y = features.copy(),y_true.copy()
+        cv = StratifiedShuffleSplit(n_splits = 300, test_size = 0.2, random_state = 12345)
+        res = cross_validate(svm,X,y, cv = cv,scoring = 'roc_auc',n_jobs = -1, verbose = 0)
+        gc.collect()
+        ax = axes.flatten()[-1]
+        ax.hist(res['test_score'])
+        ax.set(title = 'decoding scores from decoding the hidden layer')
+    return fig
