@@ -44,25 +44,42 @@ probability_func_dict = {'softmax':F.softmax,    # softmax dim = 1
 softmax_dim = 1
 
 #candidate models
-def candidates(model_name):
-    candidate_models    = dict(
-            alexnet     = Tmodels.alexnet(pretrained=True),
-            vgg19       = Tmodels.vgg19(pretrained=True),
-            densenet    = Tmodels.densenet169(pretrained=True),
-            inception   = Tmodels.inception_v3(pretrained=True),
-            mobilenet   = Tmodels.mobilenet_v2(pretrained=True),
-            resnet      = Tmodels.wide_resnet50_2(pretrained=True),
-                            )
-    return candidate_models[model_name]
+def candidates(model_name,pretrained = True,):
+    picked_models = dict(
+            resnet18        = Tmodels.resnet18(pretrained           = pretrained,
+                                              progress              = False,),
+            alexnet         = Tmodels.alexnet(pretrained            = pretrained,
+                                             progress               = False,),
+            # squeezenet      = Tmodels.squeezenet1_1(pretrained      = pretrained,
+            #                                        progress         = False,),
+            vgg19_bn        = Tmodels.vgg19_bn(pretrained           = pretrained,
+                                              progress              = False,),
+            densenet169     = Tmodels.densenet169(pretrained        = pretrained,
+                                                 progress           = False,),
+            inception       = Tmodels.inception_v3(pretrained       = pretrained,
+                                                  progress          = False,),
+            # googlenet       = Tmodels.googlenet(pretrained          = pretrained,
+            #                                    progress             = False,),
+            # shufflenet      = Tmodels.shufflenet_v2_x0_5(pretrained = pretrained,
+            #                                             progress    = False,),
+            mobilenet       = Tmodels.mobilenet_v2(pretrained       = pretrained,
+                                                  progress          = False,),
+            # resnext50_32x4d = Tmodels.resnext50_32x4d(pretrained    = pretrained,
+            #                                          progress       = False,),
+            resnet50        = Tmodels.resnet50(pretrained           = pretrained,
+                                              progress              = False,),
+            )
+    return picked_models[model_name]
 
 def define_type(model_name):
     model_type          = dict(
             alexnet     = 'simple',
-            vgg19       = 'simple',
-            densenet    = 'simple',
+            vgg19_bn    = 'simple',
+            densenet169 = 'simple',
             inception   = 'inception',
             mobilenet   = 'simple',
-            resnet      = 'resnet',
+            resnet18    = 'resnet',
+            resnet50    = 'resnet',
             )
     return model_type[model_name]
 
@@ -259,7 +276,7 @@ class resnet_model(nn.Module):
         res_net = torch.nn.Sequential(*list(self.pretrain_model.children())[:-2])
         features = res_net(x)
         pooling                 = self.avgpool(features)
-        pooling                 = pooling.view(pooling.shape[0],-1)
+        pooling                 = torch.squeeze(torch.squeeze(pooling,2),2)
         hidden                  = -self.hidden_layer(pooling)# to avoid initial negatives
         if self.hidden_activation is not None:
             hidden                  = self.hidden_activation(hidden)
@@ -424,9 +441,9 @@ def train_loop(net,
     net.to(device).train(True)
     # verbose level
     if print_train:
-        iterator = enumerate(dataloader)
-    else:
         iterator = tqdm(enumerate(dataloader))
+    else:
+        iterator = enumerate(dataloader)
 
     for ii,(features,labels) in iterator:
         if "Binary Cross Entropy" in loss_func.__doc__:
@@ -434,7 +451,7 @@ def train_loop(net,
 
         # in order to have desired classification behavior, which is to predict
         # chance when no signal is present, we manually add some noise samples
-        noise_generator     = torch.distributions.normal.Normal(0,10)
+        noise_generator     = torch.distributions.normal.Normal(features.mean(),features.std()**2)
         noisy_features      = noise_generator.sample(features.shape)[:n_noise]
         noisy_labels        = torch.tensor([0.5] * labels.shape[0])[:n_noise]
 
@@ -446,7 +463,7 @@ def train_loop(net,
         features            = features[idx_shuffle]
         labels              = labels[idx_shuffle]
 
-        if ii + 1 <= len(dataloader):
+        if ii + 1 <= len(dataloader): # drop last
             # load the data to memory
             inputs      = Variable(features).to(device)
             # one of the most important step, reset the gradients
@@ -473,8 +490,9 @@ def train_loop(net,
             # record the training loss of a mini-batch
             train_loss  += loss_batch.data
             if print_train:
+                iterator.set_description(f'epoch {idx_epoch+1}-{ii + 1:3.0f}/{100*(ii+1)/len(dataloader):2.3f}%,loss = {train_loss/(ii+1):.6f}')
 #                score = metrics.roc_auc_score(labels.detach().cpu(),outputs.detach().cpu())
-                print(f'epoch {idx_epoch+1}-{ii + 1:3.0f}/{100*(ii+1)/len(dataloader):2.3f}%,loss = {train_loss/(ii+1):.6f}')#, score = {score:.4f}')
+                # print(f'epoch {idx_epoch+1}-{ii + 1:3.0f}/{100*(ii+1)/len(dataloader):2.3f}%,loss = {train_loss/(ii+1):.6f}')#, score = {score:.4f}')
     return train_loss/(ii+1)
 
 def validation_loop(net,
@@ -503,7 +521,8 @@ def validation_loop(net,
         y_pred          = []
         y_true          = []
         features,labels = [],[]
-        for ii,(batch_features,batch_labels) in tqdm(enumerate(dataloader)):
+        iterator        = tqdm(enumerate(dataloader))
+        for ii,(batch_features,batch_labels) in iterator:
             if "Binary Cross Entropy" in loss_func.__doc__:
                 batch_labels = batch_labels.float()
             batch_labels.to(device)
@@ -533,6 +552,7 @@ def validation_loop(net,
     return valid_loss,y_pred,y_true,features,labels
 
 def validation_loop_with_path(net,
+                              pretrain_model_name,
                               loss_func,
                               dataloader,
                               device,
@@ -548,7 +568,7 @@ def validation_loop_with_path(net,
     output_activation:string, calling the activation function from an inner dictionary
 
     """
-    from tqdm import tqdm
+    # from tqdm import tqdm
     probability_func        = probability_func_dict[output_activation]
     output_activation_func  = output_act_func_dict[output_activation]
     # specify the gradient being frozen and dropout etc layers will be turned off
@@ -587,6 +607,130 @@ def validation_loop_with_path(net,
                 labels.append(batch_labels)
         valid_loss = valid_loss / (denominator + 1)
     return valid_loss,y_pred,y_true,features,labels,item
+
+def train_and_validation(
+        model_to_train,
+        f_name,
+        output_activation,
+        loss_func,
+        optimizer,
+        image_resize = 128,
+        device = 'cpu',
+        batch_size = 8,
+        n_epochs = int(3e3),
+        print_train = True,
+        patience = 5,
+        train_root = '',
+        valid_root = '',):
+    """
+    This function is to train a new CNN model on clear images
+    
+    The training and validation processes should be modified accordingly if 
+    new modules (i.e., a secondary network) are added to the model
+    
+    Arguments
+    ---------------
+    model_to_train:torch.nn.Module, a nn.Module class
+    f_name:string, the name of the model that is to be trained
+    output_activation:torch.nn.activation, the activation function that is used
+        to apply non-linearity to the output layer
+    loss_func:torch.nn.modules.loss, loss function
+    optimizer:torch.optim, optimizer
+    image_resize:int, default = 128, the number of pixels per axis for the image
+        to be resized to
+    device:string or torch.device, default = "cpu", where to train model
+    batch_size:int, default = 8, batch size
+    n_epochs:int, default = int(3e3), the maximum number of epochs for training
+    print_train:bool, default = True, whether to show verbose information
+    patience:int, default = 5, the number of epochs the model is continuely trained
+        when the validation loss does not change
+    train_root:string, default = '', the directory of data for training
+    valid_root:string, default = '', the directory of data for validation
+    
+    Output
+    -----------------
+    model_to_train:torch.nn.Module, a nn.Module class
+    """
+    if output_activation   == 'softmax':
+        categorical         = True
+    elif output_activation == 'sigmoid':
+        categorical         = False
+    augmentations = {
+            'train':transforms.Compose([
+            transforms.Resize((image_resize,image_resize)),
+            transforms.RandomHorizontalFlip(p = 0.5),
+            transforms.RandomRotation(45,),
+            transforms.RandomVerticalFlip(p = 0.5,),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ]),
+            'valid':transforms.Compose([
+            transforms.Resize((image_resize,image_resize)),
+            transforms.RandomHorizontalFlip(p = 0.5),
+            transforms.RandomRotation(45,),
+            transforms.RandomVerticalFlip(p = 0.5,),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ]),
+        }
+    
+    train_loader        = data_loader(
+            train_root,
+            augmentations   = augmentations['train'],
+            batch_size      = batch_size,
+            )
+    valid_loader        = data_loader(
+            valid_root,
+            augmentations   = augmentations['valid'],
+            batch_size      = batch_size,
+            )
+    
+    
+    model_to_train.to(device)
+    model_parameters                            = filter(lambda p: p.requires_grad, model_to_train.parameters())
+    if print_train:
+        params                                  = sum([np.prod(p.size()) for p in model_parameters])
+        print(f'total params: {params:d}')
+    
+    best_valid_loss                             = torch.tensor(float('inf'),dtype = torch.float64)
+    losses = []
+    for idx_epoch in range(n_epochs):
+        # train
+        print('\ntraining ...')
+        _                              = train_loop(
+                                                    net                 = model_to_train,
+                                                    loss_func           = loss_func,
+                                                    optimizer           = optimizer,
+                                                    dataloader          = train_loader,
+                                                    device              = device,
+                                                    categorical         = categorical,
+                                                    idx_epoch           = idx_epoch,
+                                                    print_train         = print_train,
+                                                    output_activation   = output_activation,
+                                                    )
+        print('\nvalidating ...')
+        valid_loss,y_pred,y_true,features,labels= validation_loop(
+                                                    net                 = model_to_train,
+                                                    loss_func           = loss_func,
+                                                    dataloader          = valid_loader,
+                                                    device              = device,
+                                                    categorical         = categorical,
+                                                    output_activation   = output_activation,
+                                                    )
+        y_pred = torch.cat(y_pred)
+        y_true = torch.cat(y_true)
+        score = metrics.roc_auc_score(y_true.detach().cpu(),y_pred.detach().cpu())
+        print(f'\nepoch {idx_epoch + 1}, loss = {valid_loss:6f},score = {score:.4f}')
+        if valid_loss.cpu().clone().detach().type(torch.float64) < best_valid_loss:
+            best_valid_loss = valid_loss.cpu().clone().detach().type(torch.float64)
+            torch.save(model_to_train,f_name)
+        else:
+            model_to_train = torch.load(f_name)
+        losses.append(best_valid_loss)
+    
+        if (len(losses) > patience) and (len(set(losses[-patience:])) == 1):
+            break
+    return model_to_train
 
 def resample_behavioral_estimate(y_true,y_pred,n_sampling = int(1e3),shuffle = False):
     scores = np.zeros(n_sampling)
@@ -937,8 +1081,8 @@ def resample_ttest(x,
     one_tail: whether to perform one-tailed comparison
     """
     import numpy as np
-    import gc
-    from joblib import Parallel,delayed
+    # import gc
+    # from joblib import Parallel,delayed
     # statistics with the original data distribution
     t_experiment    = np.mean(x)
     null            = x - np.mean(x) + baseline # shift the mean to the baseline but keep the distribution
@@ -1024,3 +1168,4 @@ def Find_Optimal_Cutoff(target, predicted):
     roc_t                       = roc.iloc[(roc.tf-0).abs().argsort()[:1]]
 
     return list(roc_t['threshold']) 
+
