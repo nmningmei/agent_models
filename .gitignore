@@ -130,9 +130,11 @@ dmypy.json
 
 
 # models
+models/
 *.pth
 
 # csv
+results/
 *.csv
 
 # npy
