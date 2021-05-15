@@ -126,7 +126,11 @@ class customizedDataset(ImageFolder):
         path = self.imgs[idx][0]
         tuple_with_path = (original_tuple +  (path,))
         return tuple_with_path
-    
+
+def freeze_layer_weights(layer):
+    for param in layer.parameters():
+        param.requries_grad = False
+
 def data_loader(data_root:str,
                 augmentations:transforms    = None,
                 batch_size:int              = 8,
@@ -218,31 +222,32 @@ class easy_model(nn.Module):
                  in_shape = (1,3,128,128),
                  ):
         super(easy_model,self).__init__()
-
-        self.pretrain_model     = pretrain_model
-        self.hidden_units       = hidden_units
-        self.avgpool            = nn.AdaptiveAvgPool2d((1,1))
-        self.in_shape           = in_shape
-        self.in_features        = self.avgpool(self.pretrain_model.features(torch.rand(*self.in_shape))).shape[1]
-        print(f'feature dim = {self.in_features}')
-        self.hidden_layer       = nn.Linear(self.in_features,hidden_units)
-        self.hidden_activation  = hidden_activation
-        self.hidden_dropout     = hidden_dropout
-        self.dropout            = nn.Dropout(p = hidden_dropout)
-        self.output_units       = output_units
-        self.output_layer       = nn.Linear(hidden_units,output_units)
-#        self.normalize          = nn.Sigmoid()
+        for layer in pretrain_model.features:freeze_layer_weights(layer)
+        in_features             = nn.AdaptiveAvgPool2d((1,1))(pretrain_model.features(torch.rand(*in_shape))).shape[1]
+        avgpool                 = nn.AdaptiveAvgPool2d((1,1))
+        hidden_layer            = nn.Linear(in_features,hidden_units)
+        output_layer            = nn.Linear(hidden_units,output_units)
+        if hidden_dropout > 0:
+            dropout             = nn.Dropout(p = hidden_dropout)
+        
+        print(f'feature dim = {in_features}')
+        self.features           = nn.Sequential(pretrain_model.features,
+                                                avgpool,)
+        if (hidden_activation is not None) and (hidden_dropout > 0):
+            self.hidden_layer   = nn.Sequential(hidden_layer,
+                                              hidden_activation,
+                                              dropout,)
+        elif (hidden_activation is not None) and (hidden_dropout == 0):
+            self.hidden_layer   = nn.Sequential(hidden_layer,
+                                              hidden_activation,)
+        elif (hidden_activation == None) and (hidden_dropout == 0):
+            self.hidden_layer   = hidden_layer
+        self.output_layer       = output_layer
 
     def forward(self,x,):
-        features                = self.pretrain_model.features(x)
-        pooling                 = self.avgpool(features)
-        pooling                 = pooling.view(pooling.shape[0],-1)
-        hidden                  = self.hidden_layer(pooling)
-        if self.hidden_activation is not None:
-            hidden                  = self.hidden_activation(hidden)
-        if self.hidden_dropout > 0:
-            hidden              = self.dropout(hidden)
-        outputs                 = self.output_layer(hidden)
+        out     = torch.squeeze(torch.squeeze(self.features(x),3),2)
+        hidden  = self.hidden_layer(out)
+        outputs = self.output_layer(hidden)
         return outputs,hidden
 
 class Identity(nn.Module):
@@ -280,34 +285,38 @@ class resnet_model(nn.Module):
                  output_units,
                  ):
         super(resnet_model,self).__init__()
-
-        self.pretrain_model         = pretrain_model
-        self.hidden_units           = hidden_units
-        self.avgpool                = nn.AdaptiveAvgPool2d((1,1))
-        in_features                 = self.pretrain_model.fc.in_features
+        
+        avgpool         = nn.AdaptiveAvgPool2d((1,1))
+        in_features     = pretrain_model.fc.in_features
+        hidden_layer    = nn.Linear(in_features,hidden_units)
+        dropout         = nn.Dropout(p = hidden_dropout)
+        output_layer    = nn.Linear(hidden_units,output_units)
+        res_net         = torch.nn.Sequential(*list(pretrain_model.children())[:-2])
+        for layer in res_net:freeze_layer_weights(layer)
         print(f'feature dim = {in_features}')
-        self.hidden_layer           = nn.Linear(in_features,hidden_units)
-        self.hidden_activation      = hidden_activation
-        self.hidden_dropout         = hidden_dropout
-        self.output_units           = output_units
-        self.dropout                = nn.Dropout(p = hidden_dropout)
-        self.output_layer           = nn.Linear(hidden_units,output_units)
-
+        
+        self.features           = nn.Sequential(res_net,
+                                      avgpool)
+        if (hidden_activation is not None) and (hidden_dropout > 0):
+            self.hidden_layer   = nn.Sequential(hidden_layer,
+                                              hidden_activation,
+                                              dropout,)
+        elif (hidden_activation is not None) and (hidden_dropout == 0):
+            self.hidden_layer   = nn.Sequential(hidden_layer,
+                                              hidden_activation,)
+        elif (hidden_activation == None) and (hidden_dropout == 0):
+            self.hidden_layer   = hidden_layer
+        self.output_layer       = output_layer
+        
     def forward(self,x):
-        res_net = torch.nn.Sequential(*list(self.pretrain_model.children())[:-2])
-        features = res_net(x)
-        pooling                 = self.avgpool(features)
-        pooling                 = torch.squeeze(torch.squeeze(pooling,2),2)
-        hidden                  = -self.hidden_layer(pooling)# to avoid initial negatives
-        if self.hidden_activation is not None:
-            hidden                  = self.hidden_activation(hidden)
-        if self.hidden_dropout > 0:
-            hidden              = self.dropout(hidden)
-        outputs                 = self.output_layer(hidden)
+        out     = torch.squeeze(torch.squeeze(self.features(x),3),2)
+        hidden  = self.hidden_layer(out)
+        outputs = self.output_layer(hidden)
         return outputs,hidden
 
-class inception_model(nn.Module):
+class _inception_model(nn.Module):
     """
+    MARK: private function
     Models are not created equally
     Some pretrained models are composed by a {feature} and a {fc} component,
     while having an {aux_logits} object
@@ -332,7 +341,7 @@ class inception_model(nn.Module):
                  hidden_dropout,
                  output_units,
                  ):
-        super(inception_model,self).__init__()
+        super(_inception_model,self).__init__()
 
 
         self.pretrain_model             = pretrain_model
@@ -378,7 +387,7 @@ def build_model(pretrain_model_name,
                             output_units        = output_units,
                             )
     elif define_type(pretrain_model_name) == 'inception':
-        model_to_train = inception_model(
+        model_to_train = _inception_model(
                             pretrain_model      = pretrain_model,
                             hidden_units        = hidden_units,
                             hidden_activation   = hidden_activation,
@@ -395,6 +404,41 @@ def build_model(pretrain_model_name,
                             )
     return model_to_train
 
+class modified_model(nn.Module):
+    def __init__(self,
+                 model_to_train,
+                 hidden_units       = 2,
+                 layer_type         = 'linear', # or RNN
+                 layer_units        = 2,
+                 layer_activation   = 'selu',
+                 layer_dropout      = 0.
+                 ):
+        super(modified_model,self).__init__()
+        layer_activation = hidden_activation_functions(layer_activation)
+        self.model_to_train = model_to_train
+        if layer_type == 'linear':
+            RL_layer            = nn.Linear(hidden_units,layer_units)
+            dropout             = nn.Dropout(p = layer_dropout)
+            output_layer        = nn.Linear(layer_units,2)
+            
+            if (layer_activation is not None) and (layer_dropout > 0):
+                self.RL_layer   = nn.Sequential(RL_layer,
+                                                layer_activation,
+                                                dropout,)
+            elif (layer_activation is not None) and (layer_dropout == 0):
+                self.RL_layer   = nn.Sequential(RL_layer,
+                                                layer_activation,)
+            elif (layer_activation == None) and (layer_dropout == 0):
+                self.RL_layer   = RL_layer
+            self.output_layer   = nn.Sequential(output_layer,
+                                                nn.Softmax(dim = 1),
+                                                )
+    def forward(self,x):
+        catagory,hidden_representation = self.model_to_train(x)
+        RL_output = self.RL_layer(hidden_representation)
+        out = self.output_layer(RL_output)
+        return catagory,hidden_representation,out
+    
 def createLossAndOptimizer(net, learning_rate:float = 1e-4):
     """
     To create the loss function and the optimizer
@@ -473,8 +517,8 @@ def train_loop(net,
         # in order to have desired classification behavior, which is to predict
         # chance when no signal is present, we manually add some noise samples
         noise_generator     = torch.distributions.normal.Normal(features.mean(),features.std()**2)
-        noisy_features      = noise_generator.sample(features.shape)[:n_noise]
-        noisy_labels        = torch.tensor([0.5] * labels.shape[0])[:n_noise]
+        noisy_features      = noise_generator.sample(features.shape)#[:n_noise]
+        noisy_labels        = torch.tensor([0.5] * labels.shape[0])#[:n_noise]
 
         features            = torch.cat([features,noisy_features])
         labels              = torch.cat([labels,noisy_labels])
