@@ -113,7 +113,11 @@ model_to_train = train_and_validation(
     train_root      = train_root,
     valid_root      = valid_root,
     )
+
+# move the model to CPU and freeze the model
 model_to_train = model_to_train.to('cpu')
+for parameter in model_to_train.parameters():
+    parameter.requries_grad = False
 
 # test the model on augmented images, no noise added
 transform_steps = simple_augmentations(image_resize,noise_level = None,)
@@ -142,13 +146,14 @@ fig,axes = plt.subplots(figsize = (8,12),
                         sharex = False,
                         sharey = False,
                         )
-fig = decode_and_visualize_hidden_representations(
+fig,svm_on_clear_imgs = decode_and_visualize_hidden_representations(
     fig,
     axes,
     y_true,
     y_pred,
     features,
     hidden_units = hidden_units,
+    return_estimator = True,
     )
 fig.tight_layout()
 
@@ -179,18 +184,19 @@ fig,axes = plt.subplots(figsize = (8,12),
                         sharex = False,
                         sharey = False,
                         )
-fig = decode_and_visualize_hidden_representations(
+fig,svm_on_moderate_noise = decode_and_visualize_hidden_representations(
     fig,
     axes,
     y_true,
     y_pred,
     features,
     hidden_units = hidden_units,
+    return_estimator = True,
     )
 fig.tight_layout()
 
 # modify the trained CNN model, add a secondary network
-RL_net = modified_model(
+secondary_net = modified_model(
     model_to_train,
     hidden_units = hidden_units,
     layer_type = 'linear',
@@ -198,10 +204,40 @@ RL_net = modified_model(
     layer_activation = 'sigmoid',
     layer_dropout = 0.,
     )
-a,b,c = RL_net(torch.rand(10,3,128,128))
+# a,b,c = secondary_net(torch.rand(10,3,128,128))
 
+# freeze the output layer of the first net
+for name,param in secondary_net.named_parameters():
+    if ('model_to_train' in name) and ('output_layer' in name):
+        param.requires_grad = False
 
-
+from utils_deep import output_act_func_dict
+# train the secondary_net
+noise_level = np.log(4)
+transform_steps = simple_augmentations(image_resize,noise_level = noise_level)
+DataLoader_train = data_loader(
+    train_root,
+    augmentations   = transform_steps,
+    batch_size      = batch_size,
+    )
+DataLoader_valid = data_loader(
+    valid_root,
+    augmentations   = transform_steps,
+    batch_size      = batch_size,
+    )
+secondary_net.train()
+secondary_net.to(device)
+iterator = tqdm(DataLoader_train)
+output_activation_func  = output_act_func_dict[output_activation]
+for ii,(batch_imgs,batch_labels) in enumerate(iterator):
+    batch_imgs = batch_imgs.to(device)
+    y_true = torch.vstack([1 - batch_labels,batch_labels]).T.detach().numpy()
+    
+    y_pred_cnn, hidden_representation,wagering = secondary_net(batch_imgs)
+    y_pred_cnn = output_activation_func(y_pred_cnn,dim = -1)
+    y_pred_svm = svm_on_moderate_noise.predict_proba(hidden_representation.detach().cpu().numpy())
+    
+    decoding_measure = metrics.roc_auc_score(y_true,y_pred_svm)
 
 
 

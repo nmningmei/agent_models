@@ -474,6 +474,7 @@ def train_loop(net,
                l2_lambda            = 0,
                l1_lambda            = 0,
                n_noise              = 4,
+               use_hingeloss        = False,
                ):
     """
     A for-loop of train the autoencoder for 1 epoch
@@ -513,15 +514,17 @@ def train_loop(net,
     for ii,(features,labels) in iterator:
         if "Binary Cross Entropy" in loss_func.__doc__:
             labels = labels.float() # I indeed hate this
-
-        # in order to have desired classification behavior, which is to predict
-        # chance when no signal is present, we manually add some noise samples
-        noise_generator     = torch.distributions.normal.Normal(features.mean(),features.std()**2)
-        noisy_features      = noise_generator.sample(features.shape)#[:n_noise]
-        noisy_labels        = torch.tensor([0.5] * labels.shape[0])#[:n_noise]
-
-        features            = torch.cat([features,noisy_features])
-        labels              = torch.cat([labels,noisy_labels])
+        
+        if n_noise > 0:
+            # in order to have desired classification behavior, which is to predict
+            # chance when no signal is present, we manually add some noise samples
+            noise_generator = torch.distributions.normal.Normal(features.mean(),features.std()**2)
+            noisy_features  = noise_generator.sample(features.shape)#[:n_noise]
+            noisy_labels    = torch.tensor([0.5] * labels.shape[0])#[:n_noise]
+            
+            
+            features        = torch.cat([features,noisy_features])
+            labels          = torch.cat([labels,noisy_labels])
 
         # shuffle the training batch
         idx_shuffle         = np.random.choice(features.shape[0],features.shape[0],replace = False)
@@ -1222,21 +1225,22 @@ def Find_Optimal_Cutoff(target, predicted):
 
 def decode_and_visualize_hidden_representations(fig,axes,
                                                 y_true,y_pred,features,
-                                                hidden_units = 2,):
+                                                hidden_units = 2,
+                                                return_estimator = False):
     # visualize the hidden representations
     import gc
     import seaborn as sns
     if len(y_true.shape) == 2:
         y_true = y_true[:,-1]
         y_pred = y_pred[:,-1]
-    if hidden_units == 2:
+    if hidden_units == 2: # when we don't need to PCA for visualization
         thr = Find_Optimal_Cutoff(y_true,y_pred)
         print(metrics.classification_report(y_true,y_pred>=thr[0]))
         ax = axes.flatten()[0]
         sns.scatterplot(x = features[:,0], y = features[:,1],hue = y_true,ax = ax,)
         ax.set(xlabel = 'feature 1',
                ylabel = 'feature 2',
-               title = 'hidden representations',)
+               title = f'hidden representations,CNN = {metrics.roc_auc_score(y_true,y_pred):.4f}',)
         
         gc.collect()
         svm = make_decoder('linear-SVM')
@@ -1248,7 +1252,6 @@ def decode_and_visualize_hidden_representations(fig,axes,
         ax.hist(res['test_score'])
         ax.set(title = 'decoding scores from decoding the hidden layer')
     else:
-        
         features_pca = PCA(n_components = 2,random_state = 12345).fit_transform(features)
         thr = Find_Optimal_Cutoff(y_true,y_pred)
         print(metrics.classification_report(y_true,y_pred>=thr[0]))
@@ -1256,7 +1259,7 @@ def decode_and_visualize_hidden_representations(fig,axes,
         sns.scatterplot(x = features_pca[:,0], y = features_pca[:,1],hue = y_true,ax = ax,)
         ax.set(xlabel = 'PC 1',
                ylabel = 'PC 2',
-               title = 'PCA of hidden representations',)
+               title = f'PCA of hidden representations,CNN = {metrics.roc_auc_score(y_true,y_pred):.4f}',)
         
         gc.collect()
         svm = make_decoder('linear-SVM')
@@ -1267,4 +1270,8 @@ def decode_and_visualize_hidden_representations(fig,axes,
         ax = axes.flatten()[-1]
         ax.hist(res['test_score'])
         ax.set(title = 'decoding scores from decoding the hidden layer')
-    return fig
+    if return_estimator:
+        svm.fit(X,y)
+        return fig,svm
+    else:
+        return fig
