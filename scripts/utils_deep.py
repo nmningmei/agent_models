@@ -39,7 +39,8 @@ try:
 except:
     pass
 output_act_func_dict = {'softmax':F.softmax, # softmax dim = 1
-                        'sigmoid':torch.sigmoid,}
+                        'sigmoid':torch.sigmoid,
+                        'hinge':torch.nn.HingeEmbeddingLoss}
 probability_func_dict = {'softmax':F.softmax,    # softmax dim = 1
                          'sigmoid':torch.sigmoid}
 softmax_dim = 1
