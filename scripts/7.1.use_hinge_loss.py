@@ -55,7 +55,7 @@ lr                      = 1e-4
 n_epochs                = int(1e3)
 device                  = 'cpu'#torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 pretrain_model_name     = 'vgg19_bn'
-hidden_units            = 2
+hidden_units            = 300
 hidden_func_name        = 'relu'
 hidden_activation       = hidden_activation_functions(hidden_func_name)
 hidden_dropout          = 0. # in this experiment, we should not have any dropouts because I cannot solve the math...
@@ -343,7 +343,7 @@ ax.set(xticks = np.arange(0,51,10),
        ylabel = 'ROC AUC',
        )
 ax.axhline(0.5,linestyle = '--',color = 'black',alpha = 0.5,)
-
+from sklearn.decomposition import PCA
 if True:
     ax = axes[0][1]
     noise_level = 0.1 # minmum noise
@@ -365,6 +365,8 @@ if True:
     cnn_score = np.array([metrics.roc_auc_score(a,b) for a,b in zip(y_true.reshape(-1,96),
                                                                    y_pred.reshape(-1,96))])
     svm_score = res['test_score']
+    if features.shape[1] > 2:
+        features = PCA(n_components = 2,random_state = 12345).fit_transform(features)
     sns.scatterplot(x = features[:,0], y = features[:,1],hue = y_true,ax = ax,
                     hue_order = [0,1],)
     ax.set(xlabel = 'D 1',
@@ -394,6 +396,8 @@ if True:
     cnn_score = np.array([metrics.roc_auc_score(a,b) for a,b in zip(y_true.reshape(-1,96),
                                                                    y_pred.reshape(-1,96))])
     svm_score = res['test_score']
+    if features.shape[1] > 2:
+        features = PCA(n_components = 2,random_state = 12345).fit_transform(features)
     sns.scatterplot(x = features[:,0], y = features[:,1],hue = y_true,ax = ax,
                     hue_order = [0,1],)
     ax.set(xlabel = 'D 1',
@@ -423,6 +427,8 @@ if True:
     cnn_score = np.array([metrics.roc_auc_score(a,b) for a,b in zip(y_true.reshape(-1,96),
                                                                    y_pred.reshape(-1,96))])
     svm_score = res['test_score']
+    if features.shape[1] > 2:
+        features = PCA(n_components = 2,random_state = 12345).fit_transform(features)
     sns.scatterplot(x = features[:,0], y = features[:,1],hue = y_true,ax = ax,
                     hue_order = [0,1],)
     ax.set(xlabel = 'D 1',
@@ -431,8 +437,9 @@ if True:
     leg = ax.get_legend()
     for t,l in zip(leg.texts,['Animate','Inanimate']):t.set_text(l)
     
-results.to_csv(os.path.join(results_dir,'CNN_SVM.csv'),index=False)
-fig.savefig(os.path.join(results_dir,'CNN_SVM.jpg'),
+fig.tight_layout()
+results.to_csv(os.path.join(results_dir,f'CNN_SVM_{hidden_units}.csv'),index=False)
+fig.savefig(os.path.join(results_dir,f'CNN_SVM_{hidden_units}.jpg'),
             bbox_inches = 'tight')
 
 fig,ax = plt.subplots(figsize = (12,8),
@@ -451,7 +458,7 @@ ax.set(xticks = np.arange(0,51,10),
        ylabel = 'ROC AUC',
        )
 ax.axhline(0.5,linestyle = '--',color = 'black',alpha = 0.5,)
-fig.savefig(os.path.join(results_dir,'CNN_SVM_score.jpg'),
+fig.savefig(os.path.join(results_dir,f'CNN_SVM_score_{hidden_units}.jpg'),
             bbox_inches = 'tight')
 """
 transform_steps = simple_augmentations(image_resize,noise_level = 3,)

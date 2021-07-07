@@ -101,6 +101,27 @@ def output_activation_functions(activation_func_name):
                  )
     return funcs[activation_func_name]
 
+def define_augmentations(image_resize = 128):
+    augmentations = {
+        'train':transforms.Compose([
+        transforms.Resize((image_resize,image_resize)),
+        transforms.RandomHorizontalFlip(p = 0.5),
+        transforms.RandomRotation(45,),
+        transforms.RandomVerticalFlip(p = 0.5,),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]),
+        'valid':transforms.Compose([
+        transforms.Resize((image_resize,image_resize)),
+        transforms.RandomHorizontalFlip(p = 0.5),
+        transforms.RandomRotation(25,),
+        transforms.RandomVerticalFlip(p = 0.5,),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]),
+    }
+    return augmentations
+
 def simple_augmentations(image_resize = 128,noise_level = None):
     if noise_level is not None:
         return transforms.Compose([
@@ -404,6 +425,13 @@ def build_model(pretrain_model_name,
                             output_units        = output_units,
                             )
     return model_to_train
+
+def build_model_first_layer(CNN_backbone_model_name,
+                            trained_model):
+    for params in trained_model.parameters():
+        params.requires_grad = False
+    first_layer = trained_model[0]
+    return first_layer
 
 class modified_model(nn.Module):
     def __init__(self,
@@ -806,8 +834,6 @@ def behavioral_evaluate(net,
                         device,
                         categorical = True,
                         output_activation = 'softmax',
-                        image_type = 'clear',
-                        small_dataset = True,
                         ):
     """
     This function evaluates the trained network with given dataloader (could be noisy) for
@@ -823,8 +849,7 @@ def behavioral_evaluate(net,
     device: torch.device, where to put the network and the data
     categorical: Boolean, corresponding to the output layer and activation
     output_activation: String, the name of the output activation function, it is used to called the torch function
-    image_type: for printing the information
-    small_dataset: Boolean, not functional
+    
 
     Outputs
     -----------------
@@ -834,57 +859,26 @@ def behavioral_evaluate(net,
     features: list of torch.autograd.Variables
     labels: list of torch.tensors
     """
-    if len(dataloader) > 100: # when the validation data is large
-        small_dataset   = False
-    # when the validation data is small
-    if small_dataset:
-        y_preds,y_trues = [],[]
-        features,labels = [],[]
-        for n_run in range(n_experiment_runs):
-            _,y_pred,y_true,_features,_labels       = validation_loop(
-                                net,
-                                loss_func,
-                                dataloader          = dataloader,
-                                device              = device,
-                                categorical         = categorical,
-                                output_activation   = output_activation,
-                                )
-            y_preds.append(torch.cat(y_pred).detach().cpu())
-            y_trues.append(torch.cat(y_true).detach().cpu())
-            features.append(_features)
-            labels.append(_labels)
-        yy_trues = torch.cat(y_trues).detach().cpu().numpy()
-        yy_preds = torch.cat(y_preds).detach().cpu().numpy()
-
-        scores = resample_behavioral_estimate(yy_trues,yy_preds)
-
-        if categorical:
-            confidence = torch.cat(y_preds).cpu().numpy().max(1)
-        else:
-            temp = torch.cat(y_preds).cpu().numpy()
-            temp[temp < 0.5] = 1- temp[temp < 0.5]
-            confidence = temp.copy()
-
-        print(f'\nwith {image_type} images, score = {np.mean(scores):.4f}+/-{np.std(scores):.4f},confidence = {np.mean(confidence):.2f}+/-{np.std(confidence):.2f}')
-
-        return y_trues,y_preds,scores,features,labels
-    else:
-        _,y_pred,y_true,features,labels = validation_loop(
-                                net,
-                                loss_func,
-                                dataloader = dataloader,
-                                device = device,
-                                categorical = categorical,
-                                output_activation = output_activation,
-                                )
-        scores = np.zeros(n_experiment_runs)
-        for jj in range(n_experiment_runs):
-            idx_ = np.random.choice(y_true.shape[0],size = int(y_true.shape[0]),replace = True)
-            y_pred_,y_true_ = y_pred[idx_],y_true[idx_]
-            score = metrics.roc_auc_score(y_true_,y_pred_)
-            scores[jj] = score
-        print(f'\nwith {image_type} images, score = {np.mean(scores):.4f}+/-{np.std(scores):.4f}')
-        return y_trues,y_preds,scores,features,labels
+    
+    y_preds,y_trues = [],[]
+    features,labels = [],[]
+    for n_run in range(n_experiment_runs):
+        _,y_pred,y_true,_features,_labels       = validation_loop(
+                            net,
+                            loss_func,
+                            dataloader          = dataloader,
+                            device              = device,
+                            categorical         = categorical,
+                            output_activation   = output_activation,
+                            )
+        y_preds.append(torch.cat(y_pred).detach().cpu())
+        y_trues.append(torch.cat(y_true).detach().cpu())
+        features.append(_features)
+        labels.append(_labels)
+    yy_trues = torch.cat(y_trues).detach().cpu().numpy()
+    yy_preds = torch.cat(y_preds).detach().cpu().numpy()
+    
+    return yy_trues,yy_preds,features,labels
 
 def behavioral_evaluate_with_path(net,
                         n_experiment_runs,
@@ -1071,9 +1065,7 @@ def decode_hidden_layer(decoder,
                         cv                  = None,
                         groups              = None,
                         n_splits            = 50,
-                        test_size           = .2,
-                        categorical         = True,
-                        output_activation   = 'softmax',):
+                        test_size           = .2,):
     """
     Decode the hidden layer outputs from a convolutional neural network by a scikit-learn classifier
 
@@ -1085,8 +1077,6 @@ def decode_hidden_layer(decoder,
     cv: scikit-learn object or None, default being sklearn.model_selection.StratifiedShuffleSplit
     n_splits: int, number of cross validation
     test_size: float, between 0 and 1.
-    categorical: Boolean, corresponding to the output activation function of the convolutional neural network
-    output_activation: String, name of the output activation fucntion of the convolutional neural network
     """
     if cv == None:
         cv = StratifiedShuffleSplit(n_splits        = n_splits,
@@ -1106,16 +1096,16 @@ def decode_hidden_layer(decoder,
                          return_estimator   = True,
                          )
     # plase uncomment below and test this when you have enough computational power, i.e. parallel in more than 16 CPUs
-#    _,permu,pval = permutation_test_score(decoder,
-#                                          features,
-#                                          labels,
-#                                          groups,
-#                                          cv = cv,
-#                                          scoring = 'roc_auc',
-#                                          n_jobs = -1,
-#                                          verbose = 1,
-#                                          )
-    return res,cv
+    _,permu,pval = permutation_test_score(decoder,
+                                          features,
+                                          labels,
+                                          groups,
+                                          cv = cv,
+                                          scoring = 'roc_auc',
+                                          n_jobs = -1,
+                                          verbose = 1,
+                                          )
+    return res,cv,pval
 
 def resample_ttest(x,
                    baseline         = 0.5,
