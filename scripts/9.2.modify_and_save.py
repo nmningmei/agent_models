@@ -28,7 +28,7 @@ activations = ['elu',
                'tanh',
                'linear',
                ]
-models = ['vgg19','resnet50']
+models = ['vgg19_bn','resnet50']
 output_activations = ['softmax','sigmoid',]
 
 temp = np.array(list(itertools.product(*[units,dropouts,models,activations,output_activations])))
@@ -52,6 +52,7 @@ copyfile('../utils_deep.py','utils_deep.py')
 collections = []
 first_GPU,second_GPU = [],[]
 replace = False # change to second GPU
+
 for ii,row in df.iterrows():
 
     src = '_{}_{}_{}_{}_{}'.format(*list(row.to_dict().values()))
