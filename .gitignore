@@ -139,3 +139,6 @@ results/
 
 # npy
 *.npy
+
+# train folder
+scripts/extra/

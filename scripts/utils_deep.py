@@ -992,7 +992,7 @@ def make_decoder(decoder_name,n_jobs = 1,):
     n_jobs: int, parallel argument
     """
     np.random.seed(12345)
-
+    from sklearn.decomposition import PCA
     # linear SVM
     lsvm = LinearSVC(penalty        = 'l2', # default
                      dual           = True, # default
@@ -1045,6 +1045,10 @@ def make_decoder(decoder_name,n_jobs = 1,):
         decoder = make_pipeline(StandardScaler(),
                                 lsvm,
                                 )
+    elif decoder_name == 'PCA-linear-SVM':
+        decoder = make_pipeline(StandardScaler(),
+                                PCA(random_state = 12345,),
+                                lsvm,)
     elif decoder_name == 'RBF-SVM':
         decoder = make_pipeline(StandardScaler(),
                                 svm,

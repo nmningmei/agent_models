@@ -11,15 +11,14 @@ Created on Thu Feb  6 11:08:12 2020
 """
 
 import os
-from glob import glob
-from collections import OrderedDict
+import gc
 import numpy as np
+import pandas as pd
 
 import torch
 
-from torchvision import transforms
-
 from sklearn import metrics
+from sklearn.decomposition import PCA
 
 from joblib import Parallel,delayed
 
@@ -51,9 +50,9 @@ batch_size              = 8
 lr                      = 1e-4
 n_epochs                = int(1e3)
 device                  = 'cpu'
-pretrain_model_name     = 'densenet169'
-hidden_units            = 2
-hidden_func_name        = 'relu'
+pretrain_model_name     = 'resnet50'
+hidden_units            = 300
+hidden_func_name        = 'selu'
 hidden_activation       = hidden_activation_functions(hidden_func_name)
 hidden_dropout          = 0.
 patience                = 5
@@ -150,12 +149,12 @@ results         = dict(model_name           = [],
                        noise_level          = [],
                        svm_score_mean       = [],
                        svm_score_std        = [],
-                       svm_pval             = [],
+                       svm_cnn_pval         = [],
                        cnn_score            = [],
                        cnn_pval             = [],
                        first_score_mean     = [],
                        first_score_std      = [],
-                       first_score_pval     = [],
+                       svm_first_pval       = [],
                        )
 for var in noise_levels:
     var = round(var,to_round)
@@ -194,7 +193,9 @@ for var in noise_levels:
     decoder = make_decoder('linear-SVM',n_jobs = 1)
     decode_features = torch.cat([torch.cat(item) for item in features]).detach().cpu().numpy()
     decode_labels   = torch.cat([torch.cat(item) for item in labels  ]).detach().cpu().numpy()
-    res,_,svm_cnn_pval = decode_hidden_layer(decoder,decode_features,decode_labels[:,-1],
+    if len(decode_labels.shape) > 1:
+        decode_labels = decode_labels[:,-1]
+    res,_,svm_cnn_pval = decode_hidden_layer(decoder,decode_features,decode_labels,
                               n_splits = 50,
                               test_size = 0.2,)
     svm_cnn_scores = res['test_score']
@@ -210,58 +211,35 @@ for var in noise_levels:
             _labels.append(batch_lab)
         features.append(_features)
         labels.append(_labels)
+    
     decoder = make_decoder('linear-SVM',n_jobs = 1)
     decode_features = torch.cat([torch.cat(item) for item in features]).detach().cpu().numpy()
     decode_labels   = torch.cat([torch.cat(item) for item in labels  ]).detach().cpu().numpy()
-    res,_,svm_first_pval = decode_hidden_layer(decoder,decode_features,decode_labels[:,-1],
+    if len(decode_labels.shape) > 1:
+        decode_labels = decode_labels[:,-1]
+    pca_features = PCA(random_state = 12345).fit_transform(decode_features)
+    res,_,svm_first_pval = decode_hidden_layer(decoder,pca_features,decode_labels,
                               n_splits = 50,
                               test_size = 0.2,)
     svm_first_scores = res['test_score']
-    adsf
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    
+    results['model_name'].append(pretrain_model_name)
+    results['hidden_units'].append(hidden_units)
+    results['hidden_activation'].append(hidden_activation)
+    results['output_activation'].append(output_activation)
+    results['dropout'].append(hidden_dropout)
+    results['noise_level'].append(var)
+    results['svm_score_mean'].append(np.mean(svm_cnn_scores))
+    results['svm_score_std'].append(np.std(svm_cnn_scores))
+    results['svm_cnn_pval'].append(svm_cnn_pval)
+    results['cnn_score'].append(behavioral_scores)
+    results['cnn_pval'].append(cnn_pval)
+    results['first_score_mean'].append(np.mean(svm_first_scores))
+    results['first_score_std'].append(np.std(svm_first_scores))
+    results['svm_first_pval'].append(svm_first_pval)
+    gc.collect()
+results_to_save = pd.DataFrame(results)
+results_to_save.to_csv(os.path.join(results_dir,model_saving_name,'decodings.csv'),index = False)
 
 
 
