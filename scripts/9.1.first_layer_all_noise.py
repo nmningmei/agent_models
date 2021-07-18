@@ -156,7 +156,7 @@ results         = dict(model_name           = [],
                        first_score_std      = [],
                        svm_first_pval       = [],
                        )
-for var in noise_levels:
+for ii_var,var in enumerate(noise_levels):
     var = round(var,to_round)
     valid_loader        = data_loader(
             valid_root,
@@ -185,9 +185,11 @@ for var in noise_levels:
         from sklearn.utils import shuffle as sk_shuffle
         _y_preds = sk_shuffle(y_preds)
         return metrics.roc_auc_score(y_trues,_y_preds)
+    gc.collect()
     chance_level = Parallel(n_jobs = -1,verbose = 1)(delayed(_chance)(**{
         'y_trues':y_trues,
         'y_preds':y_preds}) for _ in range(n_permutations))
+    gc.collect()
     cnn_pval = (np.sum(np.array(chance_level) >= behavioral_scores) + 1) / (n_permutations + 1)
     
     decoder = make_decoder('linear-SVM',n_jobs = 1)
@@ -195,9 +197,11 @@ for var in noise_levels:
     decode_labels   = torch.cat([torch.cat(item) for item in labels  ]).detach().cpu().numpy()
     if len(decode_labels.shape) > 1:
         decode_labels = decode_labels[:,-1]
+    gc.collect()
     res,_,svm_cnn_pval = decode_hidden_layer(decoder,decode_features,decode_labels,
                               n_splits = 50,
                               test_size = 0.2,)
+    gc.collect()
     svm_cnn_scores = res['test_score']
     
     # get first layer
@@ -217,12 +221,14 @@ for var in noise_levels:
     decode_labels   = torch.cat([torch.cat(item) for item in labels  ]).detach().cpu().numpy()
     if len(decode_labels.shape) > 1:
         decode_labels = decode_labels[:,-1]
-    pca_features = PCA(random_state = 12345).fit_transform(decode_features)
+    pca_features = PCA(n_components = .9,random_state = 12345).fit_transform(decode_features)
+    gc.collect()
     res,_,svm_first_pval = decode_hidden_layer(decoder,pca_features,decode_labels,
                               n_splits = 50,
                               test_size = 0.2,)
+    gc.collect()
     svm_first_scores = res['test_score']
-    
+    print(f'finished {ii_var}')
     results['model_name'].append(pretrain_model_name)
     results['hidden_units'].append(hidden_units)
     results['hidden_activation'].append(hidden_activation)
@@ -238,8 +244,8 @@ for var in noise_levels:
     results['first_score_std'].append(np.std(svm_first_scores))
     results['svm_first_pval'].append(svm_first_pval)
     gc.collect()
-results_to_save = pd.DataFrame(results)
-results_to_save.to_csv(os.path.join(results_dir,model_saving_name,'decodings.csv'),index = False)
+    results_to_save = pd.DataFrame(results)
+    results_to_save.to_csv(os.path.join(results_dir,model_saving_name,'decodings.csv'),index = False)
 
 
 
