@@ -17,8 +17,8 @@ verbose = 1
 batch_size = 16
 node = 1
 core = 16
-mem = 2 * node * core
-cput = 12 * node * core
+mem = 4 * node * core
+cput = 24 * node * core
 units = [2,5,10,20,50,100,300] # one unit hidden layer cannot learn
 dropouts = [0,0.25,0.5,0.75]
 activations = ['elu',
@@ -125,7 +125,7 @@ with open(f'{scripts_folder}/qsub_jobs.py','a') as f:
         if ii == 0:
             f.write(f'\nos.system("{line}")\n')
         else:
-            f.write(f'time.sleep(3)\nos.system("{line}")\n')
+            f.write(f'time.sleep(0.1)\nos.system("{line}")\n')
     f.close()
 
 from glob import glob
