@@ -231,7 +231,7 @@ for ii_var,var in enumerate(noise_levels):
     print(f'finished {ii_var}')
     results['model_name'].append(pretrain_model_name)
     results['hidden_units'].append(hidden_units)
-    results['hidden_activation'].append(hidden_activation)
+    results['hidden_activation'].append(hidden_func_name)
     results['output_activation'].append(output_activation)
     results['dropout'].append(hidden_dropout)
     results['noise_level'].append(var)

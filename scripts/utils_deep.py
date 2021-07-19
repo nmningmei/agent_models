@@ -1100,15 +1100,8 @@ def decode_hidden_layer(decoder,
                          return_estimator   = True,
                          )
     # plase uncomment below and test this when you have enough computational power, i.e. parallel in more than 16 CPUs
-    _,permu,pval = permutation_test_score(decoder,
-                                          features,
-                                          labels,
-                                          groups,
-                                          cv = cv,
-                                          scoring = 'roc_auc',
-                                          n_jobs = -1,
-                                          verbose = 1,
-                                          )
+    pval = resample_ttest(res['test_score'],baseline = 0.5,n_permutation = int(1e4),
+                                  one_tail = True,n_jobs = -1.)
     return res,cv,pval
 
 def resample_ttest(x,
