@@ -264,6 +264,10 @@ class easy_model(nn.Module):
                                               hidden_activation,)
         elif (hidden_activation == None) and (hidden_dropout == 0):
             self.hidden_layer   = hidden_layer
+        elif (hidden_activation == None) and (hidden_dropout > 0):
+            self.hidden_layer   = nn.Sequential(hidden_layer,
+                                                dropout,
+                                                )
         self.output_layer       = output_layer
 
     def forward(self,x,):
@@ -328,6 +332,10 @@ class resnet_model(nn.Module):
                                               hidden_activation,)
         elif (hidden_activation == None) and (hidden_dropout == 0):
             self.hidden_layer   = hidden_layer
+        elif (hidden_activation == None) and (hidden_dropout > 0):
+            self.hidden_layer   = nn.Sequential(hidden_layer,
+                                                dropout,
+                                                )
         self.output_layer       = output_layer
         
     def forward(self,x):
