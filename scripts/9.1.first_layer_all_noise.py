@@ -135,10 +135,10 @@ model_to_train                              = train_and_validation(
         valid_root      = valid_root,)
 
 model_to_train.to('cpu')
-model_to_train.eval()
-for param in model_to_train.parameters():
-    param.requires_grad = False
+del model_to_train
 
+np.random.seed(12345)
+torch.manual_seed(12345)
 to_round = 9
 csv_saving_name     = os.path.join(results_dir,model_saving_name,'performance_results.csv')
 results         = dict(model_name           = [],
@@ -157,6 +157,8 @@ results         = dict(model_name           = [],
                        svm_first_pval       = [],
                        )
 for ii_var,var in enumerate(noise_levels):
+    np.random.seed(12345)
+    torch.manual_seed(12345)
     var = round(var,to_round)
     valid_loader        = data_loader(
             valid_root,
@@ -164,15 +166,21 @@ for ii_var,var in enumerate(noise_levels):
             batch_size      = batch_size,
             # here I turn on the shuffle like it is in a real experiment
             )
-    visualize_loader    = data_loader(
-            valid_root,
-            augmentations   = simple_augmentations(image_resize,var),
-            batch_size      = 2 * batch_size,
-            )
-    loss_func,optimizer = createLossAndOptimizer(model_to_train,learning_rate = lr)
+    model_to_test = build_model(
+                    pretrain_model_name,
+                    hidden_units,
+                    hidden_activation,
+                    hidden_dropout,
+                    output_units,
+                    )
+    model_to_test = torch.load(f_name)
+    model_to_test.eval()
+    for param in model_to_test.parameters():
+        param.requires_grad = False
+    loss_func,optimizer = createLossAndOptimizer(model_to_test,learning_rate = lr)
     # evaluate the model
     y_trues,y_preds,features,labels = behavioral_evaluate(
-                        model_to_train,
+                        model_to_test,
                         n_experiment_runs,
                         loss_func,
                         valid_loader,
@@ -180,17 +188,18 @@ for ii_var,var in enumerate(noise_levels):
                         categorical = categorical,
                         output_activation = output_activation,
                         )
-    behavioral_scores = metrics.roc_auc_score(y_trues,y_preds)
-    def _chance(y_trues,y_preds):
-        from sklearn.utils import shuffle as sk_shuffle
-        _y_preds = sk_shuffle(y_preds)
-        return metrics.roc_auc_score(y_trues,_y_preds)
+    
+    behavioral_scores = resample_behavioral_estimate(y_trues,y_preds,int(1e3),shuffle = False)
+    print(var,np.mean(behavioral_scores))
+    
     gc.collect()
-    chance_level = Parallel(n_jobs = -1,verbose = 1)(delayed(_chance)(**{
-        'y_trues':y_trues,
-        'y_preds':y_preds}) for _ in range(n_permutations))
+    chance_level = Parallel(n_jobs = -1,verbose = 1)(delayed(resample_behavioral_estimate)(**{
+        'y_true':y_trues,
+        'y_pred':y_preds,
+        'n_sampling':int(1e1),
+        'shuffle':True,}) for _ in range(n_permutations))
     gc.collect()
-    cnn_pval = (np.sum(np.array(chance_level) >= behavioral_scores) + 1) / (n_permutations + 1)
+    cnn_pval = (np.sum(np.array(chance_level).mean(1) >= np.mean(behavioral_scores)) + 1) / (n_permutations + 1)
     
     decoder = make_decoder('linear-SVM',n_jobs = 1)
     decode_features = torch.cat([torch.cat(item) for item in features]).detach().cpu().numpy()
@@ -205,7 +214,7 @@ for ii_var,var in enumerate(noise_levels):
     svm_cnn_scores = res['test_score']
     
     # get first layer
-    first_layer_func = model_to_train.features[0][0].to('cpu')
+    first_layer_func = model_to_test.features[0][0].to('cpu')
     features,labels = [],[]
     for _ in range(n_experiment_runs):
         _features,_labels = [],[]

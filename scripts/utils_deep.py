@@ -510,7 +510,7 @@ def train_loop(net,
                output_activation    = 'softmax',
                l2_lambda            = 0,
                l1_lambda            = 0,
-               n_noise              = 4,
+               n_noise              = 0,
                use_hingeloss        = False,
                ):
     """
@@ -606,6 +606,7 @@ def validation_loop(net,
                     device,
                     categorical = True,
                     output_activation = 'softmax',
+                    verbose = 0,
                     ):
     """
     net:nn.Module, torch model object
@@ -626,7 +627,10 @@ def validation_loop(net,
         y_pred          = []
         y_true          = []
         features,labels = [],[]
-        iterator        = tqdm(enumerate(dataloader))
+        if verbose == 0:
+            iterator = enumerate(dataloader)
+        else:
+            iterator        = tqdm(enumerate(dataloader))
         for ii,(batch_features,batch_labels) in iterator:
             if "Binary Cross Entropy" in loss_func.__doc__:
                 batch_labels = batch_labels.float()
@@ -842,6 +846,7 @@ def behavioral_evaluate(net,
                         device,
                         categorical = True,
                         output_activation = 'softmax',
+                        verbose = 0,
                         ):
     """
     This function evaluates the trained network with given dataloader (could be noisy) for
@@ -878,6 +883,7 @@ def behavioral_evaluate(net,
                             device              = device,
                             categorical         = categorical,
                             output_activation   = output_activation,
+                            verbose             = verbose,
                             )
         y_preds.append(torch.cat(y_pred).detach().cpu())
         y_trues.append(torch.cat(y_true).detach().cpu())
