@@ -6,12 +6,37 @@ Created on Sun Aug  1 10:33:27 2021
 @author: nmei
 """
 import os
-import numpy as np
-import pandas as pd
-
 from glob import glob
 from tqdm import tqdm
 
+import pandas  as pd
+import numpy   as np
+import seaborn as sns
+
+import matplotlib
+# matplotlib.pyplot.switch_backend('agg')
+
+from matplotlib import pyplot as plt
+from matplotlib.patches import Patch
+
+sns.set_style('whitegrid')
+sns.set_context('poster',font_scale = 1.5)
+from matplotlib import rc
+rc('font',weight = 'bold')
+plt.rcParams['axes.labelsize'] = 45
+plt.rcParams['axes.labelweight'] = 'bold'
+plt.rcParams['axes.titlesize'] = 45
+plt.rcParams['axes.titleweight'] = 'bold'
+plt.rcParams['ytick.labelsize'] = 32
+plt.rcParams['xtick.labelsize'] = 32
+
+working_dir     = '../results/first_layer'
+figure_dir      = '../figures'
+marker_factor   = 10
+marker_type     = ['8','s','p','*','+','D','o']
+alpha_level     = .75
+
+paper_dir       = '/export/home/nmei/nmei/properties_of_unconscious_processing/figures'
 working_dir1    = '../../another_git/agent_models/results'
 working_dir2    = '../results/first_layer'
 n_noise_levels  = 50
@@ -88,9 +113,220 @@ for attributes,df_sub in iterator:
         df_include.append(df_sub)
 df_include = pd.concat(df_include)
 
+# plot cnn and svm on hidden layer
+df_plot = pd.melt(df_include,id_vars = ['model_name',
+                                'hidden_units',
+                                'hidden_activation',
+                                'output_activation',
+                                'dropout',
+                                'noise_level',
+                                'drop',
+                                'x',
+                                'activations',],
+                  value_vars = ['cnn_score',
+                                'svm_score_mean',])
+temp = pd.melt(df_include,id_vars = ['model_name',
+                                'hidden_units',
+                                'hidden_activation',
+                                'output_activation',
+                                'dropout',
+                                'noise_level',
+                                'drop',
+                                'x',
+                                'activations',],
+                  value_vars = ['cnn_pval',
+                                'svm_cnn_pval',])
+df_plot['pvals'] = temp['value'].values.copy()
+df_plot['Type'] = df_plot['variable'].apply(lambda x: x.split('_')[0].upper())
+df_plot['Type'] = df_plot['Type'].map({'CNN':'CNN',
+                                       'SVM':'Decode hidden layer'})
+
+g               = sns.relplot(
+                x           = 'x',
+                y           = 'value',
+                hue         = 'Type',
+                size        = 'drop',
+                style       = 'hidden_units',
+                col         = 'model_name',
+                col_order   = ['vgg19_bn','resnet50',],
+                row         = 'activations',
+                palette     = sns.xkcd_palette(['black','blue']),
+                alpha       = alpha_level,
+                data        = df_plot,
+                facet_kws   = {'gridspec_kws':{"wspace":0.2}},
+                aspect      = 3,
+                )
+[ax.axhline(0.5,
+            linestyle       = '--',
+            color           = 'black',
+            alpha           = 1.,
+            lw              = 1,
+            ) for ax in g.axes.flatten()]
+[ax.set(xticks = [0,n_noise_levels],
+        xticklabels = [0,noise_levels.max()]
+        ) for ax in g.axes.flatten()]
+
+(g.set_axis_labels('Noise Level','ROC AUC')
+  .set_titles('{col_name} {row_name}'))
+handles, labels             = g.axes[0][0].get_legend_handles_labels()
+# convert the circle to irrelevant patches
+handles[1]                  = Patch(facecolor = 'black')
+handles[2]                  = Patch(facecolor = 'blue',)
+g._legend.remove()
+g.fig.legend(handles,
+             labels,
+             loc            = "center right",
+             borderaxespad  = 0.1)
+
+g.savefig(os.path.join(paper_dir,'supplymental cnn hidden layer decoding vgg+resnet.jpg'),
+          dpi = 300,
+          bbox_inches = 'tight')
+g.savefig(os.path.join(paper_dir,'supplymental cnn hidden layer decoding vgg+resnet (light).jpg'),
+          # dpi = 300,
+          bbox_inches = 'tight')
 
 
+# plot cnn and svm on first layer
+df_plot = pd.melt(df_include,id_vars = ['model_name',
+                                'hidden_units',
+                                'hidden_activation',
+                                'output_activation',
+                                'dropout',
+                                'noise_level',
+                                'drop',
+                                'x',
+                                'activations',],
+                  value_vars = ['cnn_score',
+                                'first_score_mean',])
+temp = pd.melt(df_include,id_vars = ['model_name',
+                                'hidden_units',
+                                'hidden_activation',
+                                'output_activation',
+                                'dropout',
+                                'noise_level',
+                                'drop',
+                                'x',
+                                'activations',],
+                  value_vars = ['cnn_pval',
+                                'svm_first_pval',])
+df_plot['pvals'] = temp['value'].values.copy()
+df_plot['Type'] = df_plot['variable'].apply(lambda x: x.split('_')[0].upper())
+df_plot['Type'] = df_plot['Type'].map({'CNN':'CNN',
+                                       'FIRST':'Decode first layer'})
 
+g               = sns.relplot(
+                x           = 'x',
+                y           = 'value',
+                hue         = 'Type',
+                # size        = 'drop',
+                # style       = 'hidden_units',
+                col         = 'model_name',
+                col_order   = ['vgg19_bn','resnet50',],
+                # row         = 'activations',
+                palette     = sns.xkcd_palette(['black','blue']),
+                alpha       = alpha_level,
+                data        = df_plot,
+                facet_kws   = {'gridspec_kws':{"wspace":0.2}},
+                aspect      = 3,
+                )
+[ax.axhline(0.5,
+            linestyle       = '--',
+            color           = 'black',
+            alpha           = 1.,
+            lw              = 1,
+            ) for ax in g.axes.flatten()]
+[ax.set(xticks = [0,n_noise_levels],
+        xticklabels = [0,noise_levels.max()]
+        ) for ax in g.axes.flatten()]
+
+(g.set_axis_labels('Noise Level','ROC AUC')
+  .set_titles('{col_name}'))
+handles, labels             = g.axes[0][0].get_legend_handles_labels()
+# convert the circle to irrelevant patches
+handles[0]                  = Patch(facecolor = 'black')
+handles[1]                  = Patch(facecolor = 'blue',)
+g._legend.remove()
+g.fig.legend(handles,
+             labels,
+             loc            = "center right",
+             borderaxespad  = 0.1)
+g.savefig(os.path.join(paper_dir,'supplymental cnn first layer decoding vgg+resnet.jpg'),
+          dpi = 300,
+          bbox_inches = 'tight')
+g.savefig(os.path.join(paper_dir,'supplymental cnn first layer decoding vgg+resnet (light).jpg'),
+          # dpi = 300,
+          bbox_inches = 'tight')
+
+# direct comparison between cnn and hidden layer
+df_include['Decoding hidden layer > CNN'] = df_include['svm_score_mean'].values - df_include['cnn_score'].values
+# direct comparison between cnn and first layer
+df_include['Decoding first layer > CNN'] = df_include['first_score_mean'].values - df_include['cnn_score'].values
+
+g               = sns.relplot(
+                x           = 'x',
+                y           = 'Decoding hidden layer > CNN',
+                hue         = 'model_name',
+                hue_order   = ['vgg19_bn','resnet50',],
+                size        = 'drop',
+                style       = 'hidden_units',
+                col         = 'hidden_activation',
+                row         = 'output_activation',
+                alpha       = alpha_level,
+                data        = df_include,
+                facet_kws   = {'gridspec_kws':{"wspace":0.2}},
+                aspect      = 3,
+                )
+[ax.axhline(0.5,
+            linestyle       = '--',
+            color           = 'black',
+            alpha           = 1.,
+            lw              = 1,
+            ) for ax in g.axes.flatten()]
+[ax.set(xticks = [0,n_noise_levels],
+        xticklabels = [0,noise_levels.max()]
+        ) for ax in g.axes.flatten()]
+
+(g.set_axis_labels('Noise Level','Difference')
+  .set_titles('{row_name} {col_name}'))
+g.savefig(os.path.join(paper_dir,'hidden better than cnn.jpg'),
+          dpi = 300,
+          bbox_inches = 'tight')
+g.savefig(os.path.join(paper_dir,'hidden better than cnn (light).jpg'),
+          # dpi = 300,
+          bbox_inches = 'tight')
+
+g               = sns.relplot(
+                x           = 'x',
+                y           = 'Decoding first layer > CNN',
+                hue         = 'model_name',
+                hue_order   = ['vgg19_bn','resnet50',],
+                size        = 'drop',
+                style       = 'hidden_units',
+                col         = 'hidden_activation',
+                row         = 'output_activation',
+                alpha       = alpha_level,
+                data        = df_include,
+                facet_kws   = {'gridspec_kws':{"wspace":0.2}},
+                aspect      = 3,
+                )
+[ax.axhline(0.5,
+            linestyle       = '--',
+            color           = 'black',
+            alpha           = 1.,
+            lw              = 1,
+            ) for ax in g.axes.flatten()]
+[ax.set(xticks = [0,n_noise_levels],
+        xticklabels = [0,noise_levels.max()]
+        ) for ax in g.axes.flatten()]
+
+(g.set_axis_labels('Noise Level','Difference')
+  .set_titles('{row_name} {col_name}'))
+g.savefig(os.path.join(paper_dir,'first better than cnn.jpg'),
+          dpi = 300,
+          bbox_inches = 'tight')
+g.savefig(os.path.join(paper_dir,'first better than cnn (light).jpg'),
+          # dpi = 300,first
+          bbox_inches = 'tight')
 
 
 
