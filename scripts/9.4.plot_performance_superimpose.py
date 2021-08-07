@@ -80,6 +80,21 @@ df2 = load_data(working_data2)
 df1 = df1[np.logical_or(df1['model_name'] == 'vgg19',
                         df1['model_name'] == 'resnet')]
 df2 = df2[df2['model_name'] != 'densenet169']
+"""
+temp operation
+"""
+values = df2['cnn_score'].values
+temp = []
+for item in values:
+    item_temp = []
+    for item_item in item[1:-2].replace('\n','').split(' '):
+        try:
+            item_item = float(item_item)
+            item_temp.append(item_item)
+        except:
+            pass
+    temp.append(np.mean(item_temp))
+df2['cnn_score'] = np.array(temp)
 
 name_mapper = dict(vgg19_bn='vgg19',
                    resnet50='resnet')

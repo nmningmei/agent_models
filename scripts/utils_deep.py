@@ -244,7 +244,7 @@ class easy_model(nn.Module):
                  in_shape = (1,3,128,128),
                  ):
         super(easy_model,self).__init__()
-        for layer in pretrain_model.features:freeze_layer_weights(layer)
+        torch.manual_seed(12345)
         in_features             = nn.AdaptiveAvgPool2d((1,1))(pretrain_model.features(torch.rand(*in_shape))).shape[1]
         avgpool                 = nn.AdaptiveAvgPool2d((1,1))
         hidden_layer            = nn.Linear(in_features,hidden_units)
@@ -257,17 +257,17 @@ class easy_model(nn.Module):
                                                 avgpool,)
         if (hidden_activation is not None) and (hidden_dropout > 0):
             self.hidden_layer   = nn.Sequential(hidden_layer,
-                                              hidden_activation,
-                                              dropout,)
+                                                hidden_activation,
+                                                dropout,)
         elif (hidden_activation is not None) and (hidden_dropout == 0):
             self.hidden_layer   = nn.Sequential(hidden_layer,
-                                              hidden_activation,)
-        elif (hidden_activation == None) and (hidden_dropout == 0):
-            self.hidden_layer   = hidden_layer
+                                                hidden_activation,)
         elif (hidden_activation == None) and (hidden_dropout > 0):
             self.hidden_layer   = nn.Sequential(hidden_layer,
-                                                dropout,
-                                                )
+                                                dropout,)
+        elif (hidden_activation == None) and (hidden_dropout == 0):
+            self.hidden_layer   = hidden_layer
+        
         self.output_layer       = output_layer
 
     def forward(self,x,):
@@ -311,31 +311,29 @@ class resnet_model(nn.Module):
                  output_units,
                  ):
         super(resnet_model,self).__init__()
-        
+        torch.manual_seed(12345)
         avgpool         = nn.AdaptiveAvgPool2d((1,1))
         in_features     = pretrain_model.fc.in_features
         hidden_layer    = nn.Linear(in_features,hidden_units)
         dropout         = nn.Dropout(p = hidden_dropout)
         output_layer    = nn.Linear(hidden_units,output_units)
         res_net         = torch.nn.Sequential(*list(pretrain_model.children())[:-2])
-        for layer in res_net:freeze_layer_weights(layer)
         print(f'feature dim = {in_features}')
         
         self.features           = nn.Sequential(res_net,
                                       avgpool)
         if (hidden_activation is not None) and (hidden_dropout > 0):
             self.hidden_layer   = nn.Sequential(hidden_layer,
-                                              hidden_activation,
-                                              dropout,)
+                                                hidden_activation,
+                                                dropout,)
         elif (hidden_activation is not None) and (hidden_dropout == 0):
             self.hidden_layer   = nn.Sequential(hidden_layer,
-                                              hidden_activation,)
-        elif (hidden_activation == None) and (hidden_dropout == 0):
-            self.hidden_layer   = hidden_layer
+                                                hidden_activation,)
         elif (hidden_activation == None) and (hidden_dropout > 0):
             self.hidden_layer   = nn.Sequential(hidden_layer,
-                                                dropout,
-                                                )
+                                                dropout,)
+        elif (hidden_activation == None) and (hidden_dropout == 0):
+            self.hidden_layer   = hidden_layer
         self.output_layer       = output_layer
         
     def forward(self,x):
@@ -556,14 +554,15 @@ def train_loop(net,
             # in order to have desired classification behavior, which is to predict
             # chance when no signal is present, we manually add some noise samples
             noise_generator = torch.distributions.normal.Normal(features.mean(),features.std()**2)
-            noisy_features  = noise_generator.sample(features.shape)#[:n_noise]
-            noisy_labels    = torch.tensor([0.5] * labels.shape[0])#[:n_noise]
+            noisy_features  = noise_generator.sample(features.shape)[:n_noise]
+            noisy_labels    = torch.tensor([0.5] * labels.shape[0])[:n_noise]
             
             
             features        = torch.cat([features,noisy_features])
             labels          = torch.cat([labels,noisy_labels])
 
         # shuffle the training batch
+        np.random.seed(12345)
         idx_shuffle         = np.random.choice(features.shape[0],features.shape[0],replace = False)
         features            = features[idx_shuffle]
         labels              = labels[idx_shuffle]
@@ -583,11 +582,13 @@ def train_loop(net,
                 outputs = output_activation_func(outputs.clone())
             loss_batch  = loss_func(outputs.to(device),labels.view(outputs.shape).to(device))
             # add L2 loss to the weights
-            weight_norm = torch.norm(list(net.parameters())[-4],2)
-            loss_batch  += l2_lambda * weight_norm
+            if l2_lambda > 0:
+                weight_norm = torch.norm(list(net.parameters())[-4],2)
+                loss_batch  += l2_lambda * weight_norm
             # add L1 loss to the weights
-            weight_norm = torch.norm(list(net.parameters())[-4],1)
-            loss_batch  += l1_lambda * weight_norm
+            if l1_lambda > 0:
+                weight_norm = torch.norm(list(net.parameters())[-4],1)
+                loss_batch  += l1_lambda * weight_norm
             # backpropagation
             loss_batch.backward()
             # modify the weights
@@ -1124,7 +1125,8 @@ def resample_ttest(x,
                    one_tail         = False,
                    n_jobs           = 12,
                    verbose          = 0,
-                   full_size        = True
+                   full_size        = True,
+                   metric_func      = np.mean,
                    ):
     """
     http://www.stat.ucla.edu/~rgould/110as02/bshypothesis.pdf
@@ -1140,8 +1142,8 @@ def resample_ttest(x,
     # import gc
     # from joblib import Parallel,delayed
     # statistics with the original data distribution
-    t_experiment    = np.mean(x)
-    null            = x - np.mean(x) + baseline # shift the mean to the baseline but keep the distribution
+    t_experiment    = metric_func(x)
+    null            = x - metric_func(x) + baseline # shift the mean to the baseline but keep the distribution
 
     if null.shape[0] > int(1e4): # catch for big data
         full_size   = False
@@ -1151,7 +1153,7 @@ def resample_ttest(x,
         size = (null.shape[0],n_permutation)
     
     null_dist = np.random.choice(null,size = size,replace = True)
-    t_null = np.mean(null_dist,0)
+    t_null = metric_func(null_dist,0)
     
     if one_tail:
         return ((np.sum(t_null >= t_experiment)) + 1) / (size[1] + 1)

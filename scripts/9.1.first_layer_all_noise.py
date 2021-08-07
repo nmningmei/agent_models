@@ -52,7 +52,7 @@ n_epochs                = int(1e3)
 device                  = 'cpu'
 pretrain_model_name     = 'vgg19_bn'
 hidden_units            = 5
-hidden_func_name        = 'linear'
+hidden_func_name        = 'selu'
 hidden_activation       = hidden_activation_functions(hidden_func_name)
 hidden_dropout          = 0.25
 patience                = 5
@@ -140,6 +140,7 @@ del model_to_train
 np.random.seed(12345)
 torch.manual_seed(12345)
 to_round = 9
+
 csv_saving_name     = os.path.join(results_dir,model_saving_name,'performance_results.csv')
 results         = dict(model_name           = [],
                        hidden_units         = [],
@@ -190,7 +191,7 @@ for ii_var,var in enumerate(noise_levels):
                         )
     
     behavioral_scores = resample_behavioral_estimate(y_trues,y_preds,int(1e3),shuffle = False)
-    print(var,np.mean(behavioral_scores))
+    
     
     gc.collect()
     chance_level = Parallel(n_jobs = -1,verbose = 1)(delayed(resample_behavioral_estimate)(**{
@@ -215,21 +216,22 @@ for ii_var,var in enumerate(noise_levels):
     
     # get first layer
     first_layer_func = model_to_test.features[0][0].to('cpu')
-    features,labels = [],[]
+    features_first,labels_first = [],[]
     for _ in range(n_experiment_runs):
         _features,_labels = [],[]
         for batch_in, batch_lab in valid_loader:
             batch_out = first_layer_func(batch_in).view(batch_size,-1)
             _features.append(batch_out)
             _labels.append(batch_lab)
-        features.append(_features)
-        labels.append(_labels)
+        features_first.append(_features)
+        labels_first.append(_labels)
     
     decoder = make_decoder('linear-SVM',n_jobs = 1)
-    decode_features = torch.cat([torch.cat(item) for item in features]).detach().cpu().numpy()
-    decode_labels   = torch.cat([torch.cat(item) for item in labels  ]).detach().cpu().numpy()
+    decode_features = torch.cat([torch.cat(item) for item in features_first]).detach().cpu().numpy()
+    decode_labels   = torch.cat([torch.cat(item) for item in labels_first  ]).detach().cpu().numpy()
     if len(decode_labels.shape) > 1:
         decode_labels = decode_labels[:,-1]
+    print('fitting PCA...')
     pca_features = PCA(n_components = .9,random_state = 12345).fit_transform(decode_features)
     gc.collect()
     res,_,svm_first_pval = decode_hidden_layer(decoder,pca_features,decode_labels,
@@ -237,7 +239,9 @@ for ii_var,var in enumerate(noise_levels):
                               test_size = 0.2,)
     gc.collect()
     svm_first_scores = res['test_score']
+    print(var,np.mean(behavioral_scores),np.mean(svm_cnn_scores),np.mean(svm_first_scores))
     print(f'finished {ii_var}')
+    del model_to_test
     results['model_name'].append(pretrain_model_name)
     results['hidden_units'].append(hidden_units)
     results['hidden_activation'].append(hidden_func_name)
