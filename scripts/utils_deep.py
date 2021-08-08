@@ -122,6 +122,18 @@ def define_augmentations(image_resize = 128):
     }
     return augmentations
 
+def noise_fuc(x,noise_level = 1):
+    """
+    add guassian noise to the images during agumentation procedures
+
+    Inputs
+    --------------------
+    x: torch.tensor, batch_size x 3 x height x width
+    noise_level: float, standard deviation of the gaussian distribution
+    """
+    generator = torch.distributions.normal.Normal(0,noise_level)
+    return x + generator.sample(x.shape)
+
 def simple_augmentations(image_resize = 128,noise_level = None):
     if noise_level is not None:
         return transforms.Compose([
@@ -553,7 +565,8 @@ def train_loop(net,
         if n_noise > 0:
             # in order to have desired classification behavior, which is to predict
             # chance when no signal is present, we manually add some noise samples
-            noise_generator = torch.distributions.normal.Normal(features.mean(),features.std()**2)
+            noise_generator = torch.distributions.normal.Normal(features.mean(),
+                                                                features.std()**2)
             noisy_features  = noise_generator.sample(features.shape)[:n_noise]
             noisy_labels    = torch.tensor([0.5] * labels.shape[0])[:n_noise]
             
@@ -803,6 +816,7 @@ def train_and_validation(
         idx_epoch           = idx_epoch,
         print_train         = print_train,
         output_activation   = output_activation,
+        n_noise             = 4,
         )
         print('\nvalidating ...')
         valid_loss,y_pred,y_true,features,labels= validation_loop(
@@ -820,8 +834,8 @@ def train_and_validation(
         if valid_loss.cpu().clone().detach().type(torch.float64) < best_valid_loss:
             best_valid_loss = valid_loss.cpu().clone().detach().type(torch.float64)
             torch.save(model_to_train,f_name)
-        else:
-            model_to_train = torch.load(f_name)
+        # else:
+        #     model_to_train = torch.load(f_name)
         losses.append(best_valid_loss)
     
         if (len(losses) > patience) and (len(set(losses[-patience:])) == 1):
@@ -829,15 +843,19 @@ def train_and_validation(
     return model_to_train
 
 def resample_behavioral_estimate(y_true,y_pred,n_sampling = int(1e3),shuffle = False):
-    scores = np.zeros(n_sampling)
-    for _idx in range(n_sampling):
-        idx_picked = np.random.choice(y_true.shape[0],y_true.shape[0],replace = True)
+    from joblib import Parallel,delayed
+    def _temp_func(idx_picked,shuffle = shuffle):
         if shuffle:
             _y_pred = sk_shuffle(y_pred)
-            scores[_idx] = metrics.roc_auc_score(y_true[idx_picked],_y_pred[idx_picked])
+            score = metrics.roc_auc_score(y_true[idx_picked],_y_pred[idx_picked])
 
         else:
-            scores[_idx] = metrics.roc_auc_score(y_true[idx_picked],y_pred[idx_picked])
+            score = metrics.roc_auc_score(y_true[idx_picked],y_pred[idx_picked])
+        return score
+    scores = Parallel(n_jobs = -1,verbose = 0)(delayed(_temp_func)(**{
+        'idx_picked':np.random.choice(y_true.shape[0],y_true.shape[0],replace = True),
+        'shuffle':shuffle}) for _ in range(n_sampling))
+    
     return scores
 
 def behavioral_evaluate(net,
@@ -985,17 +1003,7 @@ def behavioral_evaluate_with_path(net,
         print(f'\nwith {image_type} images, score = {np.mean(scores):.4f}+/-{np.std(scores):.4f}')
         return y_trues,y_preds,scores,features,labels
     
-def noise_fuc(x,noise_level = 1):
-    """
-    add guassian noise to the images during agumentation procedures
 
-    Inputs
-    --------------------
-    x: torch.tensor, batch_size x 3 x height x width
-    noise_level: float, standard deviation of the gaussian distribution
-    """
-    generator = torch.distributions.normal.Normal(0,noise_level)
-    return x + generator.sample(x.shape)
 
 def make_decoder(decoder_name,n_jobs = 1,):
     """

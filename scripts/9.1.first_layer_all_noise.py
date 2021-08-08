@@ -157,6 +157,18 @@ results         = dict(model_name           = [],
                        first_score_std      = [],
                        svm_first_pval       = [],
                        )
+model_to_test = build_model(
+                pretrain_model_name,
+                hidden_units,
+                hidden_activation,
+                hidden_dropout,
+                output_units,
+                )
+model_to_test = torch.load(f_name)
+model_to_test.eval()
+for param in model_to_test.parameters():
+    param.requires_grad = False
+loss_func,optimizer = createLossAndOptimizer(model_to_test,learning_rate = lr)
 for ii_var,var in enumerate(noise_levels):
     np.random.seed(12345)
     torch.manual_seed(12345)
@@ -167,18 +179,7 @@ for ii_var,var in enumerate(noise_levels):
             batch_size      = batch_size,
             # here I turn on the shuffle like it is in a real experiment
             )
-    model_to_test = build_model(
-                    pretrain_model_name,
-                    hidden_units,
-                    hidden_activation,
-                    hidden_dropout,
-                    output_units,
-                    )
-    model_to_test = torch.load(f_name)
-    model_to_test.eval()
-    for param in model_to_test.parameters():
-        param.requires_grad = False
-    loss_func,optimizer = createLossAndOptimizer(model_to_test,learning_rate = lr)
+    
     # evaluate the model
     y_trues,y_preds,features,labels = behavioral_evaluate(
                         model_to_test,
@@ -191,7 +192,7 @@ for ii_var,var in enumerate(noise_levels):
                         )
     
     behavioral_scores = resample_behavioral_estimate(y_trues,y_preds,int(1e3),shuffle = False)
-    
+    # print(var,np.mean(behavioral_scores))
     
     gc.collect()
     chance_level = Parallel(n_jobs = -1,verbose = 1)(delayed(resample_behavioral_estimate)(**{
@@ -213,10 +214,13 @@ for ii_var,var in enumerate(noise_levels):
                               test_size = 0.2,)
     gc.collect()
     svm_cnn_scores = res['test_score']
+    # print(var,np.mean(behavioral_scores),np.mean(svm_cnn_scores),)
     
     # get first layer
     first_layer_func = model_to_test.features[0][0].to('cpu')
     features_first,labels_first = [],[]
+    np.random.seed(12345)
+    torch.manual_seed(12345)
     for _ in range(n_experiment_runs):
         _features,_labels = [],[]
         for batch_in, batch_lab in valid_loader:
@@ -239,9 +243,9 @@ for ii_var,var in enumerate(noise_levels):
                               test_size = 0.2,)
     gc.collect()
     svm_first_scores = res['test_score']
-    print(var,np.mean(behavioral_scores),np.mean(svm_cnn_scores),np.mean(svm_first_scores))
+    # print(var,np.mean(behavioral_scores),np.mean(svm_cnn_scores),np.mean(svm_first_scores))
     print(f'finished {ii_var}')
-    del model_to_test
+    
     results['model_name'].append(pretrain_model_name)
     results['hidden_units'].append(hidden_units)
     results['hidden_activation'].append(hidden_func_name)
