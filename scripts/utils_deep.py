@@ -744,7 +744,8 @@ def train_and_validation(
         print_train = True,
         patience = 5,
         train_root = '',
-        valid_root = '',):
+        valid_root = '',
+        n_noise = 4,):
     """
     This function is to train a new CNN model on clear images
     
@@ -816,7 +817,7 @@ def train_and_validation(
         idx_epoch           = idx_epoch,
         print_train         = print_train,
         output_activation   = output_activation,
-        n_noise             = 4,
+        n_noise             = n_noise,
         )
         print('\nvalidating ...')
         valid_loss,y_pred,y_true,features,labels= validation_loop(
