@@ -101,24 +101,10 @@ def output_activation_functions(activation_func_name):
                  )
     return funcs[activation_func_name]
 
-def define_augmentations(image_resize = 128):
+def define_augmentations(image_resize = 128,noise_level = None):
     augmentations = {
-        'train':transforms.Compose([
-        transforms.Resize((image_resize,image_resize)),
-        transforms.RandomHorizontalFlip(p = 0.5),
-        transforms.RandomRotation(45,),
-        transforms.RandomVerticalFlip(p = 0.5,),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]),
-        'valid':transforms.Compose([
-        transforms.Resize((image_resize,image_resize)),
-        transforms.RandomHorizontalFlip(p = 0.5),
-        transforms.RandomRotation(25,),
-        transforms.RandomVerticalFlip(p = 0.5,),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]),
+        'train':simple_augmentations(image_resize,noise_level),
+        'valid':simple_augmentations(image_resize,noise_level),
     }
     return augmentations
 
@@ -745,7 +731,8 @@ def train_and_validation(
         patience = 5,
         train_root = '',
         valid_root = '',
-        n_noise = 4,):
+        n_noise = 4,
+        noise_level = None,):
     """
     This function is to train a new CNN model on clear images
     
@@ -780,8 +767,8 @@ def train_and_validation(
     elif output_activation == 'sigmoid':
         categorical         = False
     augmentations = {
-            'train':simple_augmentations(image_resize,noise_level = None),
-            'valid':simple_augmentations(image_resize,noise_level = None),
+            'train':simple_augmentations(image_resize,noise_level = noise_level),
+            'valid':simple_augmentations(image_resize,noise_level = noise_level),
         }
     
     train_loader        = data_loader(

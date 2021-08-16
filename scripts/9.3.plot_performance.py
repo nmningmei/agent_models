@@ -81,7 +81,7 @@ values = df['cnn_score'].values
 temp = []
 for item in values:
     item_temp = []
-    for item_item in item[1:-2].replace('\n','').split(' '):
+    for item_item in item[1:-1].replace('\n','').split(' '):
         try:
             item_item = float(item_item)
             item_temp.append(item_item)

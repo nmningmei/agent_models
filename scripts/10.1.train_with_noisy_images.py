@@ -4,10 +4,8 @@
 Created on Thu Feb  6 11:08:12 2020
 @author: nmei
 
-1. get output of the first layer
-2. get output of the hidden layer
-3. decode from both the first layer and the hidden layer
-4. test through all noise levels
+1. train with noisy images
+2. same as before
 """
 
 import os
@@ -51,10 +49,10 @@ lr                      = 1e-4
 n_epochs                = int(1e3)
 device                  = 'cpu'
 pretrain_model_name     = 'vgg19_bn'
-hidden_units            = 5
+hidden_units            = 300
 hidden_func_name        = 'selu'
 hidden_activation       = hidden_activation_functions(hidden_func_name)
-hidden_dropout          = 0.25
+hidden_dropout          = 0.75
 patience                = 5
 output_activation       = 'softmax'
 model_saving_name       = f'{pretrain_model_name}_{hidden_units}_{hidden_func_name}_{hidden_dropout}_{output_activation}'
@@ -75,7 +73,7 @@ elif output_activation == 'sigmoid':
 if not os.path.exists(os.path.join(model_dir,model_saving_name)):
     os.mkdir(os.path.join(model_dir,model_saving_name))
 
-results_dir             = '../results/first_layer'
+results_dir             = '../results/train_with_noise'
 if not os.path.exists(results_dir):
     os.mkdir(results_dir)
 if not os.path.exists(os.path.join(results_dir,model_saving_name)):
@@ -120,8 +118,8 @@ model_to_train                              = train_and_validation(
         patience        = 5,
         train_root      = train_root,
         valid_root      = valid_root,
-        n_noise = 0,
-        noise_level = noise_levels[20])
+        noise_level     = noise_levels[25],
+        )
 
 model_to_train.to('cpu')
 del model_to_train
@@ -181,14 +179,14 @@ for ii_var,var in enumerate(noise_levels):
     behavioral_scores = resample_behavioral_estimate(y_trues,y_preds,int(1e3),shuffle = False)
     # print(var,np.mean(behavioral_scores))
     
-    # gc.collect()
-    # chance_level = Parallel(n_jobs = -1,verbose = 1)(delayed(resample_behavioral_estimate)(**{
-    #     'y_true':y_trues,
-    #     'y_pred':y_preds,
-    #     'n_sampling':int(1e1),
-    #     'shuffle':True,}) for _ in range(n_permutations))
-    # gc.collect()
-    # cnn_pval = (np.sum(np.array(chance_level).mean(1) >= np.mean(behavioral_scores)) + 1) / (n_permutations + 1)
+    gc.collect()
+    chance_level = Parallel(n_jobs = -1,verbose = 1)(delayed(resample_behavioral_estimate)(**{
+        'y_true':y_trues,
+        'y_pred':y_preds,
+        'n_sampling':int(1e1),
+        'shuffle':True,}) for _ in range(n_permutations))
+    gc.collect()
+    cnn_pval = (np.sum(np.array(chance_level).mean(1) >= np.mean(behavioral_scores)) + 1) / (n_permutations + 1)
     
     decoder = make_decoder('linear-SVM',n_jobs = 1)
     decode_features = torch.cat([torch.cat(item) for item in features]).detach().cpu().numpy()
@@ -201,7 +199,7 @@ for ii_var,var in enumerate(noise_levels):
                               test_size = 0.2,)
     gc.collect()
     svm_cnn_scores = res['test_score']
-    print(var,np.mean(behavioral_scores),np.mean(svm_cnn_scores),)
+    # print(var,np.mean(behavioral_scores),np.mean(svm_cnn_scores),)
     
     
     print(f'finished {ii_var}')
@@ -215,11 +213,11 @@ for ii_var,var in enumerate(noise_levels):
     results['svm_score_mean'].append(np.mean(svm_cnn_scores))
     results['svm_score_std'].append(np.std(svm_cnn_scores))
     results['svm_cnn_pval'].append(svm_cnn_pval)
-    results['cnn_score'].append(behavioral_scores)
-    # results['cnn_pval'].append(cnn_pval)
-    # gc.collect()
-    # results_to_save = pd.DataFrame(results)
-    # results_to_save.to_csv(os.path.join(results_dir,model_saving_name,'decodings.csv'),index = False)
+    results['cnn_score'].append(np.mean(behavioral_scores))
+    results['cnn_pval'].append(cnn_pval)
+    gc.collect()
+    results_to_save = pd.DataFrame(results)
+    results_to_save.to_csv(os.path.join(results_dir,model_saving_name,'decodings.csv'),index = False)
 
 
 

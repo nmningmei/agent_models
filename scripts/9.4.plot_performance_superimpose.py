@@ -69,7 +69,7 @@ def load_data(working_data,):
     
     df['x']             = df['x'].apply(lambda x: [x + np.random.normal(0,0.1,size = 1)][0][0])
     df                  = df.sort_values(['hidden_activation','output_activation'])
-    df['activations']   = df['hidden_activation'] + '_' +  df['output_activation']
+    df['activations']   = df['hidden_activation'] + '->' +  df['output_activation']
     return df
 
 working_data1 = glob(os.path.join(working_dir1,'*','*.csv'))
@@ -98,6 +98,7 @@ df2['cnn_score'] = np.array(temp)
 
 name_mapper = dict(vgg19_bn='vgg19',
                    resnet50='resnet')
+model_for_plot = dict(vgg19='VGG19',resnet='Resnet50')
 
 col_for_comparison = ['x_id',
                       'model_name',
@@ -121,7 +122,7 @@ for attributes,df_sub in iterator:
                                        output_activation])]).sum(0) == len(col_for_comparison)
     row = df1[row_picked]
     row = row[row['model'] == 'CNN']
-    df_sub['model_name'] = model_name
+    df_sub['model_name'] = model_for_plot[model_name]
     iterator.set_description(f'size = {len(row)}')
     if len(row) == 1:
         df_sub['cnn_score'] = row['score_mean'].values
@@ -129,23 +130,27 @@ for attributes,df_sub in iterator:
         df_include.append(df_sub)
 df_include = pd.concat(df_include)
 
+df_include['Model name'] = df_include['model_name']
+df_include['Dropout rate'] = df_include['drop']
+df_include['# of hidden units'] = df_include['hidden_units']
+
 # plot cnn and svm on hidden layer
-df_plot = pd.melt(df_include,id_vars = ['model_name',
-                                'hidden_units',
+df_plot = pd.melt(df_include,id_vars = ['Model name',
+                                '# of hidden units',
                                 'hidden_activation',
                                 'output_activation',
-                                'dropout',
+                                'Dropout rate',
                                 'noise_level',
                                 'drop',
                                 'x',
                                 'activations',],
                   value_vars = ['cnn_score',
                                 'svm_score_mean',])
-temp = pd.melt(df_include,id_vars = ['model_name',
-                                'hidden_units',
+temp = pd.melt(df_include,id_vars = ['Model name',
+                                '# of hidden units',
                                 'hidden_activation',
                                 'output_activation',
-                                'dropout',
+                                'Dropout rate',
                                 'noise_level',
                                 'drop',
                                 'x',
@@ -161,10 +166,10 @@ g               = sns.relplot(
                 x           = 'x',
                 y           = 'value',
                 hue         = 'Type',
-                size        = 'drop',
-                style       = 'hidden_units',
-                col         = 'model_name',
-                col_order   = list(name_mapper.values()),
+                size        = 'Dropout rate',
+                style       = '# of hidden units',
+                col         = 'Model name',
+                col_order   = list(model_for_plot.values()),
                 row         = 'activations',
                 palette     = sns.xkcd_palette(['black','blue']),
                 alpha       = alpha_level,
@@ -202,89 +207,16 @@ g.savefig(os.path.join(paper_dir,'supplymental cnn hidden layer decoding vgg+res
           bbox_inches = 'tight')
 
 
-# plot cnn and svm on first layer
-df_plot = pd.melt(df_include,id_vars = ['model_name',
-                                'hidden_units',
-                                'hidden_activation',
-                                'output_activation',
-                                'dropout',
-                                'noise_level',
-                                'drop',
-                                'x',
-                                'activations',],
-                  value_vars = ['cnn_score',
-                                'first_score_mean',])
-temp = pd.melt(df_include,id_vars = ['model_name',
-                                'hidden_units',
-                                'hidden_activation',
-                                'output_activation',
-                                'dropout',
-                                'noise_level',
-                                'drop',
-                                'x',
-                                'activations',],
-                  value_vars = ['cnn_pval',
-                                'svm_first_pval',])
-df_plot['pvals'] = temp['value'].values.copy()
-df_plot['Type'] = df_plot['variable'].apply(lambda x: x.split('_')[0].upper())
-df_plot['Type'] = df_plot['Type'].map({'CNN':'CNN',
-                                       'FIRST':'Decode first layer'})
-
-g               = sns.relplot(
-                x           = 'x',
-                y           = 'value',
-                hue         = 'Type',
-                # size        = 'drop',
-                # style       = 'hidden_units',
-                col         = 'model_name',
-                col_order   = list(name_mapper.values()),
-                # row         = 'activations',
-                palette     = sns.xkcd_palette(['black','blue']),
-                alpha       = alpha_level,
-                data        = df_plot,
-                facet_kws   = {'gridspec_kws':{"wspace":0.2}},
-                aspect      = 3,
-                )
-[ax.axhline(0.5,
-            linestyle       = '--',
-            color           = 'black',
-            alpha           = 1.,
-            lw              = 1,
-            ) for ax in g.axes.flatten()]
-[ax.set(xticks = [0,n_noise_levels],
-        xticklabels = [0,noise_levels.max()]
-        ) for ax in g.axes.flatten()]
-
-(g.set_axis_labels('Noise Level','ROC AUC')
-  .set_titles('{col_name}'))
-handles, labels             = g.axes[0][0].get_legend_handles_labels()
-# convert the circle to irrelevant patches
-handles[0]                  = Patch(facecolor = 'black')
-handles[1]                  = Patch(facecolor = 'blue',)
-g._legend.remove()
-g.fig.legend(handles,
-             labels,
-             loc            = "center right",
-             borderaxespad  = 0.1)
-g.savefig(os.path.join(paper_dir,'supplymental cnn first layer decoding vgg+resnet.jpg'),
-          dpi = 300,
-          bbox_inches = 'tight')
-g.savefig(os.path.join(paper_dir,'supplymental cnn first layer decoding vgg+resnet (light).jpg'),
-          # dpi = 300,
-          bbox_inches = 'tight')
-
 # direct comparison between cnn and hidden layer
 df_include['Decoding hidden layer > CNN'] = df_include['svm_score_mean'].values - df_include['cnn_score'].values
-# direct comparison between cnn and first layer
-df_include['Decoding first layer > CNN'] = df_include['first_score_mean'].values - df_include['cnn_score'].values
 
 g               = sns.relplot(
                 x           = 'x',
                 y           = 'Decoding hidden layer > CNN',
-                hue         = 'model_name',
-                hue_order   = list(name_mapper.values()),
-                size        = 'drop',
-                style       = 'hidden_units',
+                hue         = 'Model name',
+                hue_order   = list(model_for_plot.values()),
+                size        = 'Dropout rate',
+                style       = '# of hidden units',
                 row         = 'hidden_activation',
                 col         = 'output_activation',
                 alpha       = alpha_level,
@@ -303,45 +235,12 @@ g               = sns.relplot(
         ) for ax in g.axes.flatten()]
 
 (g.set_axis_labels('Noise Level','Difference')
-  .set_titles('{row_name} {col_name}'))
+  .set_titles('{row_name}->{col_name}'))
 g.savefig(os.path.join(paper_dir,'hidden better than cnn.jpg'),
           dpi = 300,
           bbox_inches = 'tight')
 g.savefig(os.path.join(paper_dir,'hidden better than cnn (light).jpg'),
           # dpi = 300,
-          bbox_inches = 'tight')
-
-g               = sns.relplot(
-                x           = 'x',
-                y           = 'Decoding first layer > CNN',
-                hue         = 'model_name',
-                hue_order   = list(name_mapper.values()),
-                size        = 'drop',
-                style       = 'hidden_units',
-                col         = 'hidden_activation',
-                row         = 'output_activation',
-                alpha       = alpha_level,
-                data        = df_include,
-                facet_kws   = {'gridspec_kws':{"wspace":0.2}},
-                aspect      = 3,
-                )
-[ax.axhline(0.5,
-            linestyle       = '--',
-            color           = 'black',
-            alpha           = 1.,
-            lw              = 1,
-            ) for ax in g.axes.flatten()]
-[ax.set(xticks = [0,n_noise_levels],
-        xticklabels = [0,noise_levels.max()]
-        ) for ax in g.axes.flatten()]
-
-(g.set_axis_labels('Noise Level','Difference')
-  .set_titles('{row_name} {col_name}'))
-g.savefig(os.path.join(paper_dir,'first better than cnn.jpg'),
-          dpi = 300,
-          bbox_inches = 'tight')
-g.savefig(os.path.join(paper_dir,'first better than cnn (light).jpg'),
-          # dpi = 300,first
           bbox_inches = 'tight')
 
 
