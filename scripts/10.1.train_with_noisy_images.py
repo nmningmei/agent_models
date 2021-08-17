@@ -49,10 +49,10 @@ lr                      = 1e-4
 n_epochs                = int(1e3)
 device                  = 'cpu'
 pretrain_model_name     = 'vgg19_bn'
-hidden_units            = 300
+hidden_units            = 5
 hidden_func_name        = 'selu'
 hidden_activation       = hidden_activation_functions(hidden_func_name)
-hidden_dropout          = 0.75
+hidden_dropout          = 0.25
 patience                = 5
 output_activation       = 'softmax'
 model_saving_name       = f'{pretrain_model_name}_{hidden_units}_{hidden_func_name}_{hidden_dropout}_{output_activation}'
@@ -73,7 +73,7 @@ elif output_activation == 'sigmoid':
 if not os.path.exists(os.path.join(model_dir,model_saving_name)):
     os.mkdir(os.path.join(model_dir,model_saving_name))
 
-results_dir             = '../results/train_with_noise'
+results_dir             = '../results/trained_with_noise'
 if not os.path.exists(results_dir):
     os.mkdir(results_dir)
 if not os.path.exists(os.path.join(results_dir,model_saving_name)):
@@ -118,7 +118,8 @@ model_to_train                              = train_and_validation(
         patience        = 5,
         train_root      = train_root,
         valid_root      = valid_root,
-        noise_level     = noise_levels[25],
+        n_noise         = 1,
+        noise_level     = 1.
         )
 
 model_to_train.to('cpu')
@@ -199,7 +200,7 @@ for ii_var,var in enumerate(noise_levels):
                               test_size = 0.2,)
     gc.collect()
     svm_cnn_scores = res['test_score']
-    # print(var,np.mean(behavioral_scores),np.mean(svm_cnn_scores),)
+    print(var,np.mean(behavioral_scores),np.mean(svm_cnn_scores),)
     
     
     print(f'finished {ii_var}')

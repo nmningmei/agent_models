@@ -77,33 +77,7 @@ for model_name,folder_name in dict_folder.items():
 df_plot = pd.concat(dfs)
 df_chance = pd.concat(df_chance)
 
-g = sns.relplot(x           = 'x',
-                y           = 'ROC AUC',
-                hue         = 'Type',
-                data        = df_plot,
-                row         = 'model_name',
-                row_order   = list(dict_folder.keys())[::-1],
-                palette     = sns.xkcd_palette(['black','blue']),
-                alpha       = alpha_level,
-                aspect      = 2.5,
-                s           = 200
-                )
-[ax.axhline(0.5,
-            linestyle       = '--',
-            color           = 'black',
-            alpha           = 1.,
-            lw              = 1,
-            ) for ax in g.axes.flatten()]
-xticks = g.axes.flatten()[-1].get_xticks()
-(g.set_axis_labels('Noise Level','ROC AUC')
-  .set_titles('{row_name}')
-  .set(xticks = [0,np.max(xticks)-8],
-       xticklabels = [0,df_plot['noise_level'].max(),],
-       )
-  )
-g.savefig(os.path.join(paper_dir,'decoding first layer.jpg'),
-          dpi = 300,
-          bbox_inches = 'tight')
+
 
 
 df_chance_plot = df_chance[np.logical_and(df_chance['cnn_pval'] > 0.05,
@@ -117,30 +91,59 @@ df_chance_melt_plot['Type'] = df_chance_melt_plot['Type'].map({'CNN':'CNN',
                                        'FIRST':'Decode first layer'})
 df_chance_melt_plot['model_name'] = df_chance_melt_plot['model_name'].map({val:key for key,val in dict_folder.items()})
 
-g = sns.relplot(x           = 'x',
-                y           = 'ROC AUC',
-                hue         = 'Type',
-                data        = df_chance_melt_plot,
-                row         = 'model_name',
-                row_order   = list(dict_folder.keys())[::-1],
-                palette     = sns.xkcd_palette(['black','blue']),
-                alpha       = alpha_level,
-                aspect      = 2.5,
-                s           = 200,
-                )
+xargs = dict(x           = 'x',
+             y           = 'ROC AUC',
+             hue         = 'Type',
+             palette     = sns.xkcd_palette(['black','blue']),
+             alpha       = alpha_level,
+             s           = 200)
+fig,axes = plt.subplots(figsize = (25,16),
+                        nrows = 2,
+                        ncols = 2,
+                        sharex = False,
+                        sharey = True,
+                        )
+for ii,(axes_row,model_picked) in enumerate(zip(axes,['VGG19','Resnet50'])):
+    df_plot_row = df_plot[df_plot['model_name'] == model_picked]
+    df_chance_plot_row = df_chance_melt_plot[df_chance_melt_plot['model_name'] == model_picked]
+    # left
+    ax = axes_row[0]
+    ax = sns.scatterplot(data = df_plot_row,
+                         ax = ax,
+                         **xargs)
+    handles,labels = ax.get_legend_handles_labels()
+    ax.legend([],[],frameon = False)
+    if ii > 0:
+        ax.set(xlabel = 'Noise level',)
+    else:
+        ax.set(xlabel = '')
+    xticks = ax.get_xticks()
+    ax.set(xticks = [0,np.max(xticks)-8],
+           xticklabels = [0,df_plot['noise_level'].max(),],)
+    # right
+    ax = axes_row[1]
+    ax = sns.scatterplot(data = df_chance_plot_row,
+                         ax = ax,
+                         **xargs,)
+    handles,labels = ax.get_legend_handles_labels()
+    ax.legend([],[],frameon = False)
+    if ii > 0:
+        ax.set(xlabel = 'Noise level',)
+    else:
+        ax.set(xlabel = '')
+    xticks = ax.get_xticks()
+    ax.set(xticks = [0,np.max(xticks)],
+           xticklabels = [0,df_chance_melt_plot['noise_level'].max().round(3)])
 [ax.axhline(0.5,
             linestyle       = '--',
             color           = 'black',
             alpha           = 1.,
             lw              = 1,
-            ) for ax in g.axes.flatten()]
-xticks = g.axes.flatten()[-1].get_xticks()
-(g.set_axis_labels('Noise Level','ROC AUC')
-  .set_titles('{row_name}')
-  .set(xticks = [0,np.max(xticks)],
-       xticklabels = [0,df_chance_melt_plot['noise_level'].max().round(3)])
-  )
-g.savefig(os.path.join(paper_dir,'decoding first layer chance level.jpg'),
+            ) for ax in axes.flatten()]
+fig.legend(handles,labels,loc = (0.65,0.8),)
+
+
+fig.savefig(os.path.join(paper_dir,'decoding first layer and chance level.jpg'),
           dpi = 300,
           bbox_inches = 'tight')
 
