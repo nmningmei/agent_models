@@ -100,7 +100,7 @@ print(pretrain_model_name,
 #      model_to_train(next(iter(train_loader))[0]),
       f'total params = {params}')
 
-f_name = os.path.join(model_dir,model_saving_name,model_saving_name+'.pth')
+f_name = os.path.join(model_dir,model_saving_name,model_saving_name+'_noise.pth')
 
 # train the model
 loss_func,optimizer                         = createLossAndOptimizer(model_to_train,learning_rate = lr)
