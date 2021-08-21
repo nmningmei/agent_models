@@ -182,14 +182,14 @@ for ii_var,var in enumerate(noise_levels):
     behavioral_scores = resample_behavioral_estimate(y_trues,y_preds,int(1e3),shuffle = False)
     # print(var,np.mean(behavioral_scores))
     
-    # gc.collect()
-    # chance_level = Parallel(n_jobs = -1,verbose = 1)(delayed(resample_behavioral_estimate)(**{
-    #     'y_true':y_trues,
-    #     'y_pred':y_preds,
-    #     'n_sampling':int(1e1),
-    #     'shuffle':True,}) for _ in range(n_permutations))
-    # gc.collect()
-    # cnn_pval = (np.sum(np.array(chance_level).mean(1) >= np.mean(behavioral_scores)) + 1) / (n_permutations + 1)
+    gc.collect()
+    chance_level = Parallel(n_jobs = -1,verbose = 1)(delayed(resample_behavioral_estimate)(**{
+        'y_true':y_trues,
+        'y_pred':y_preds,
+        'n_sampling':int(1e1),
+        'shuffle':True,}) for _ in range(n_permutations))
+    gc.collect()
+    cnn_pval = (np.sum(np.array(chance_level).mean(1) >= np.mean(behavioral_scores)) + 1) / (n_permutations + 1)
     
     decoder = make_decoder('linear-SVM',n_jobs = 1)
     decode_features = torch.cat([torch.cat(item) for item in features]).detach().cpu().numpy()
@@ -217,10 +217,10 @@ for ii_var,var in enumerate(noise_levels):
     results['svm_score_std'].append(np.std(svm_cnn_scores))
     results['svm_cnn_pval'].append(svm_cnn_pval)
     results['cnn_score'].append(behavioral_scores)
-    # results['cnn_pval'].append(cnn_pval)
-    # gc.collect()
-    # results_to_save = pd.DataFrame(results)
-    # results_to_save.to_csv(os.path.join(results_dir,model_saving_name,'decodings.csv'),index = False)
+    results['cnn_pval'].append(cnn_pval)
+    gc.collect()
+    results_to_save = pd.DataFrame(results)
+    results_to_save.to_csv(os.path.join(results_dir,model_saving_name,'decodings.csv'),index = False)
 
 
 

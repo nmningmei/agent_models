@@ -109,7 +109,7 @@ model_to_train                              = train_and_validation(
         n_epochs        = n_epochs,
         print_train     = True,
         patience        = 5,
-        n_noise         = 2,
+        n_noise         = 0,
         train_root      = train_root,
         valid_root      = valid_root,)
 

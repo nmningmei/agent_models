@@ -28,11 +28,11 @@ activations = ['elu',
                'tanh',
                'linear',
                ]
-models = ['vgg19_bn','resnet50',]#'alexnet','densenet169','mobilenet']
+models = ['vgg19_bn','resnet50','alexnet','densenet169','mobilenet']
 output_activations = ['softmax','sigmoid',]
 
-temp = np.array(list(itertools.product(*[units,dropouts,models,activations,output_activations])))
-df = pd.DataFrame(temp,columns = ['hidden_units','dropouts','model_names','hidden_activations','output_activations'])
+temp = np.array(list(itertools.product(*[models,units,dropouts,activations,output_activations])))
+df = pd.DataFrame(temp,columns = ['model_names','hidden_units','dropouts','hidden_activations','output_activations'])
 df['hidden_units'] = df['hidden_units'].astype(int)
 df['dropouts'] = df['dropouts'].astype(float)
 
