@@ -731,7 +731,7 @@ def train_and_validation(
         patience = 5,
         train_root = '',
         valid_root = '',
-        n_noise = 4,
+        n_noise = 0,
         noise_level = None,):
     """
     This function is to train a new CNN model on clear images

@@ -28,7 +28,7 @@ activations = ['elu',
                'tanh',
                'linear',
                ]
-models = ['vgg19_bn','resnet50']
+models = ['vgg19_bn','resnet50','alexnet','densenet169','mobilenet']
 output_activations = ['softmax','sigmoid',]
 
 temp = np.array(list(itertools.product(*[units,dropouts,models,activations,output_activations])))
@@ -37,8 +37,8 @@ df['hidden_units'] = df['hidden_units'].astype(int)
 df['dropouts'] = df['dropouts'].astype(float)
 
 #############
-template = '9.1.first_layer_all_noise.py'
-scripts_folder = 'extra'
+template = '9.1.hidden_layer_all_noise.py'
+scripts_folder = 'all_in_all'
 if not os.path.exists(scripts_folder):
     os.mkdir(scripts_folder)
 else:

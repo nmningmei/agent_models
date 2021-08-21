@@ -118,7 +118,7 @@ model_to_train                              = train_and_validation(
         patience        = 5,
         train_root      = train_root,
         valid_root      = valid_root,
-        n_noise         = 1,
+        n_noise         = 0,
         noise_level     = 1.
         )
 
