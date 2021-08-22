@@ -154,6 +154,7 @@ g.fig.legend(handles,
              labels,
              loc            = "center right",
              borderaxespad  = 0.1)
+asdf
 g.savefig(os.path.join(paper_dir,'supplymental cnn hidden layer decoding vgg+resnet.jpg'),
           dpi = 300,
           bbox_inches = 'tight')

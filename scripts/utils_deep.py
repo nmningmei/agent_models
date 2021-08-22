@@ -552,7 +552,7 @@ def train_loop(net,
             # in order to have desired classification behavior, which is to predict
             # chance when no signal is present, we manually add some noise samples
             noise_generator = torch.distributions.normal.Normal(features.mean(),
-                                                                features.std()**2)
+                                                                features.std())
             noisy_features  = noise_generator.sample(features.shape)[:n_noise]
             noisy_labels    = torch.tensor([0.5] * labels.shape[0])[:n_noise]
             

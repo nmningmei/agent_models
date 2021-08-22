@@ -44,18 +44,6 @@ for model_name,folder_name in dict_folder.items():
     df['x']         = df['noise_level'].round(9).map(x_map)
     df['x_id']      = df['noise_level'].round(9).map(x_map)
     df['x']         = df['x'].apply(lambda x: [x + np.random.normal(0,0.1,size = 1)][0][0])
-    # values = df['cnn_score'].values
-    # temp = []
-    # for item in values:
-    #     item_temp = []
-    #     for item_item in item[1:-1].replace('\n','').split(' '):
-    #         try:
-    #             item_item = float(item_item)
-    #             item_temp.append(item_item)
-    #         except:
-    #             pass
-    #     temp.append(np.mean(item_temp))
-    # df['cnn_score'] = np.array(temp)
     df_chance.append(df)
     df_plot = pd.melt(df,id_vars = ['model_name',
                                     'noise_level',
@@ -119,7 +107,8 @@ for ii,(axes_row,model_picked) in enumerate(zip(axes,['VGG19','Resnet50'])):
         ax.set(xlabel = '')
     xticks = ax.get_xticks()
     ax.set(xticks = [0,np.max(xticks)-8],
-           xticklabels = [0,df_plot['noise_level'].max(),],)
+           xticklabels = [0,df_plot['noise_level'].max(),],
+           title = model_picked)
     # right
     ax = axes_row[1]
     ax = sns.scatterplot(data = df_chance_plot_row,
@@ -133,7 +122,9 @@ for ii,(axes_row,model_picked) in enumerate(zip(axes,['VGG19','Resnet50'])):
         ax.set(xlabel = '')
     xticks = ax.get_xticks()
     ax.set(xticks = [0,np.max(xticks)],
-           xticklabels = [0,df_chance_melt_plot['noise_level'].max().round(3)])
+           xticklabels = [0,df_chance_melt_plot['noise_level'].max().round(3)],
+           title = model_picked)
+    
 [ax.axhline(0.5,
             linestyle       = '--',
             color           = 'black',

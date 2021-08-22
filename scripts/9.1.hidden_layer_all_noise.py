@@ -120,7 +120,7 @@ model_to_train                              = train_and_validation(
         patience        = 5,
         train_root      = train_root,
         valid_root      = valid_root,
-        n_noise         = 0,
+        n_noise         = 1,
         noise_level     = None,
         )
 
@@ -130,7 +130,6 @@ del model_to_train
 np.random.seed(12345)
 torch.manual_seed(12345)
 to_round = 9
-
 
 csv_saving_name     = os.path.join(results_dir,model_saving_name,'performance_results.csv')
 results         = dict(model_name           = [],
@@ -142,9 +141,12 @@ results         = dict(model_name           = [],
                        svm_score_mean       = [],
                        svm_score_std        = [],
                        svm_cnn_pval         = [],
-                       cnn_score            = [],
+                       cnn_score_mean       = [],
+                       cnn_score_std        = [],
                        cnn_pval             = [],
                        )
+
+# build the model from saved checkpoint
 model_to_test = build_model(
                 pretrain_model_name,
                 hidden_units,
@@ -157,6 +159,7 @@ model_to_test.eval()
 for param in model_to_test.parameters():
     param.requires_grad = False
 loss_func,optimizer = createLossAndOptimizer(model_to_test,learning_rate = lr)
+# start testing
 for ii_var,var in enumerate(noise_levels):
     np.random.seed(12345)
     torch.manual_seed(12345)
@@ -216,7 +219,8 @@ for ii_var,var in enumerate(noise_levels):
     results['svm_score_mean'].append(np.mean(svm_cnn_scores))
     results['svm_score_std'].append(np.std(svm_cnn_scores))
     results['svm_cnn_pval'].append(svm_cnn_pval)
-    results['cnn_score'].append(behavioral_scores)
+    results['cnn_score_mean'].append(np.mean(behavioral_scores))
+    results['cnn_score_std'].append(np.std(behavioral_scores))
     results['cnn_pval'].append(cnn_pval)
     gc.collect()
     results_to_save = pd.DataFrame(results)
