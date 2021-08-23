@@ -578,7 +578,7 @@ def train_loop(net,
         if ii + 1 <= len(dataloader): # drop last
             # load the data to memory
             inputs      = Variable(features).to(device)
-            # one of the most important step, reset the gradients
+            # one of the most important steps, reset the gradients
             optimizer.zero_grad()
             # compute the outputs
             outputs,_   = net(inputs)
@@ -588,7 +588,9 @@ def train_loop(net,
                 labels  = torch.stack([labels,1- labels]).T
             else:
                 outputs = output_activation_func(outputs.clone())
+            
             loss_batch  = loss_func(outputs.to(device),labels.view(outputs.shape).to(device))
+            """
             # add L2 loss to the weights
             if l2_lambda > 0:
                 weight_norm = torch.norm(list(net.parameters())[-4],2)
@@ -597,6 +599,7 @@ def train_loop(net,
             if l1_lambda > 0:
                 weight_norm = torch.norm(list(net.parameters())[-4],1)
                 loss_batch  += l1_lambda * weight_norm
+            """
             # backpropagation
             loss_batch.backward()
             # modify the weights
@@ -605,8 +608,7 @@ def train_loop(net,
             train_loss  += loss_batch.data
             if print_train:
                 iterator.set_description(f'epoch {idx_epoch+1}-{ii + 1:3.0f}/{100*(ii+1)/len(dataloader):2.3f}%,loss = {train_loss/(ii+1):.6f}')
-#                score = metrics.roc_auc_score(labels.detach().cpu(),outputs.detach().cpu())
-                # print(f'epoch {idx_epoch+1}-{ii + 1:3.0f}/{100*(ii+1)/len(dataloader):2.3f}%,loss = {train_loss/(ii+1):.6f}')#, score = {score:.4f}')
+                
     return train_loss/(ii+1)
 
 def validation_loop(net,
@@ -831,8 +833,8 @@ def train_and_validation(
         if valid_loss.cpu().clone().detach().type(torch.float64) < best_valid_loss:
             best_valid_loss = valid_loss.cpu().clone().detach().type(torch.float64)
             torch.save(model_to_train,f_name)
-        # else:
-        #     model_to_train = torch.load(f_name)
+        else:
+            model_to_train = torch.load(f_name)
         losses.append(best_valid_loss)
     
         if (len(losses) > patience) and (len(set(losses[-patience:])) == 1):
