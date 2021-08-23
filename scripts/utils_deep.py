@@ -95,6 +95,15 @@ def hidden_activation_functions(activation_func_name):
                  )
     return funcs[activation_func_name]
 
+def _cut_bins(x,n_noise_levels = 50):
+    _,bins          = pd.cut(np.arange(n_noise_levels),2,retbins = True)
+    if bins[0] <= x < bins[1]:
+        return 'low'
+    # elif bins[1] <= x < bins[2]:
+    #     return 'medium'
+    else:
+        return 'high'
+
 def output_activation_functions(activation_func_name):
     funcs = dict(softmax = F.log_softmax,
                  sigmoid = F.logsigmoid,

@@ -28,7 +28,7 @@ from utils_deep import (data_loader,
 
 from joblib import Parallel,delayed
 from sklearn.decomposition import PCA
-for _model_name in np.sort(['vgg19_bn','resnet50','alexnet','densenet169','mobilenet']):
+for _model_name in ['vgg19_bn','resnet50','alexnet','densenet169','mobilenet']:
 # experiment control
     model_dir               = '../models'
     results_dir             = '../results/first_layer_only'
@@ -109,7 +109,7 @@ for _model_name in np.sort(['vgg19_bn','resnet50','alexnet','densenet169','mobil
             n_epochs        = n_epochs,
             print_train     = True,
             patience        = 5,
-            n_noise         = 0,
+            n_noise         = 1,
             train_root      = train_root,
             valid_root      = valid_root,)
     
