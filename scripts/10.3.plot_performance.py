@@ -280,7 +280,6 @@ for model_name,ax in zip(model_names,g.axes.flatten()):
     counter['Model name'] = model_name
     temp.append(counter)
     
-    ax.axvline(bins[1],linestyle = '--' ,color = 'black', alpha = 0.6)
     
     tiny_ax = ax.inset_axes([.6,.6,.3,.3])
     tiny_ax = sns.barplot(x = 'groups',

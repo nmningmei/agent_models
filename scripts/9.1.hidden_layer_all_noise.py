@@ -44,7 +44,7 @@ train_folder            = 'greyscaled'
 valid_folder            = 'experiment_images_greyscaled'
 train_root              = f'../data/{train_folder}/'
 valid_root              = f'../data/{valid_folder}'
-print_train             = True #
+print_train             = True # display the training process
 image_resize            = 128
 batch_size              = 8
 lr                      = 1e-4
@@ -62,6 +62,7 @@ testing                 = True #
 n_experiment_runs       = 20
 n_noise_levels          = 50
 n_permutations          = int(1e4)
+n_noise                 = 2
 
 noise_levels    = np.concatenate([[0],[item for item in np.logspace(-1,3,n_noise_levels)]])
 
@@ -75,7 +76,7 @@ elif output_activation == 'sigmoid':
 if not os.path.exists(os.path.join(model_dir,model_saving_name)):
     os.mkdir(os.path.join(model_dir,model_saving_name))
 
-results_dir             = '../results/first_layer'
+results_dir             = '../results/all_for_all'
 if not os.path.exists(results_dir):
     os.mkdir(results_dir)
 if not os.path.exists(os.path.join(results_dir,model_saving_name)):
@@ -116,11 +117,11 @@ model_to_train                              = train_and_validation(
         device          = device,
         batch_size      = batch_size,
         n_epochs        = n_epochs,
-        print_train     = True,
-        patience        = 5,
+        print_train     = print_train,
+        patience        = patience,
         train_root      = train_root,
         valid_root      = valid_root,
-        n_noise         = 1,
+        n_noise         = n_noise,
         noise_level     = None,
         )
 

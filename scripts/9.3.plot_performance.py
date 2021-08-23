@@ -74,21 +74,7 @@ df['x']             = df['x'].apply(lambda x: [x + np.random.normal(0,0.1,size =
 df                  = df.sort_values(['hidden_activation','output_activation'])
 df['activations']   = df['hidden_activation'] + '_' +  df['output_activation']
 df['Model name']    = df['model_name'].map({'vgg19_bn':'VGG19','resnet50':'Resnet50'})
-"""
-temp operation
-"""
-values = df['cnn_score'].values
-temp = []
-for item in values:
-    item_temp = []
-    for item_item in item[1:-1].replace('\n','').split(' '):
-        try:
-            item_item = float(item_item)
-            item_temp.append(item_item)
-        except:
-            pass
-    temp.append(np.mean(item_temp))
-df['cnn_score'] = np.array(temp)
+
 
 # plot cnn and svm on hidden layer
 df_plot = pd.melt(df,id_vars = ['Model name',
@@ -100,7 +86,7 @@ df_plot = pd.melt(df,id_vars = ['Model name',
                                 'drop',
                                 'x',
                                 'activations',],
-                  value_vars = ['cnn_score',
+                  value_vars = ['cnn_score_mean',
                                 'svm_score_mean',])
 temp = pd.melt(df,id_vars = ['Model name',
                                 'hidden_units',
