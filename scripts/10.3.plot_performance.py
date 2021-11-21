@@ -320,7 +320,7 @@ for model_name,ax in zip(model_names,g.axes.flatten()):
     # tiny_ax.set(xticklabels = ['low','medium','high'],
     tiny_ax.set_xlabel('Noise level',fontsize = 16)
     tiny_ax.set_ylabel('Decoding rate',fontsize = 16)
-    tiny_ax.set(ylim = 0,1)
+    tiny_ax.set(ylim = (0,1))
     tiny_handles,tiny_labels = tiny_ax.get_legend_handles_labels()
     tiny_ax.get_legend().remove()
     simpleaxes(tiny_ax)

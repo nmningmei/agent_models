@@ -290,7 +290,7 @@ for model_name,ax in zip(['alexnet','vgg19','mobilenet','densenet','resnet',],g.
     # tiny_ax.set(xticklabels = ['low','medium','high'],
     tiny_ax.set_xlabel('Noise level',fontsize = 18)
     tiny_ax.set_ylabel('Proportion',fontsize = 18)
-    tiny_ax.set(yim = (0,1))
+    tiny_ax.set(ylim = (0,1))
     tiny_handles,tiny_labels = tiny_ax.get_legend_handles_labels()
     tiny_ax.get_legend().remove()
     simpleaxes(tiny_ax)
