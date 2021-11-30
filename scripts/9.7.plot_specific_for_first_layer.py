@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 sns.set_style('white')
-sns.set_context('paper',font_scale = 1.5)
+sns.set_context('paper',font_scale = 2)
 from matplotlib import rc
 from matplotlib import pyplot as plt
 from matplotlib.patches import Patch
@@ -144,7 +144,7 @@ for ii,(axes_row,model_picked) in enumerate(zip(axes,['Vgg19','ResNet50'])):
             ) for ax in axes.flatten()]
 [simpleaxes(ax) for ax in axes.flatten()]
 # fig.legend(handles,labels,loc = (0.65,0.8),)
-fig.savefig(os.path.join(collect_dir,'supfigure15.eps'),
+fig.savefig(os.path.join(collect_dir,'supfigure11.eps'),
             dpi = 300,
             bbox_inches = 'tight')
 

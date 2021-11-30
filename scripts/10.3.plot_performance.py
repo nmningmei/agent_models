@@ -170,8 +170,10 @@ g.fig.legend(handles,
 # g.savefig(os.path.join(paper_dir,
 #                        'trained with noise performance.jpg'),
 #           bbox_inches = 'tight')
-g.savefig(os.path.join(collect_dir,'supfigure12.eps'),
+g.savefig(os.path.join(collect_dir,'supfigure8.eps'),
           dpi = 300,
+          bbox_inches = 'tight')
+g.savefig(os.path.join(collect_dir,'supfigure8.png'),
           bbox_inches = 'tight')
 
 
@@ -224,8 +226,10 @@ g.fig.legend(handles,
 #                        'trained with noise difference between cnn and svm.jpg'),
 #           dpi = 100,
 #           bbox_inches = 'tight')
-g.savefig(os.path.join(collect_dir,'supfigure13.eps'),
+g.savefig(os.path.join(collect_dir,'supfigure9.eps'),
           dpi = 300,
+          bbox_inches = 'tight')
+g.savefig(os.path.join(collect_dir,'supfigure9.png'),
           bbox_inches = 'tight')
 
 # chance level cnn
@@ -343,10 +347,11 @@ g.fig.legend(handles,
 #                         'trained with noise chance cnn.jpg'),
 #           dpi = 100,
 #           bbox_inches = 'tight')
-g.savefig(os.path.join(collect_dir,'supfigure14.eps'),
+g.savefig(os.path.join(collect_dir,'supfigure10.eps'),
           dpi = 300,
           bbox_inches = 'tight')
-
+g.savefig(os.path.join(collect_dir,'supfigure10.png'),
+          bbox_inches = 'tight')
 
 
 

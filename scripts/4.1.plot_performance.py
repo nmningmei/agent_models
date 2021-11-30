@@ -156,10 +156,11 @@ g.fig.legend(handles,
 # g.savefig(os.path.join(paper_dir,'CNN_performance_light.jpeg'),
 # #          dpi               = 300,
 #           bbox_inches       = 'tight')
-g.savefig(os.path.join(collect_dir,'figure3.eps'),
+g.savefig(os.path.join(collect_dir,'figure4.pdf'),
             dpi = 300,
           bbox_inches = 'tight')
-
+g.savefig(os.path.join(collect_dir,'figure4.png'),
+          bbox_inches = 'tight')
 
 
 # plot the decoding when CNN failed
@@ -334,8 +335,10 @@ g.fig.legend(handles,
 #           bbox_inches = 'tight')
 # g.savefig(os.path.join(collect_dir,'decoding_performance.eps'),
 #           bbox_inches = 'tight')
-g.savefig(os.path.join(collect_dir,'figure4.eps'),
+g.savefig(os.path.join(collect_dir,'figure5.pdf'),
           dpi = 300,
+          bbox_inches = 'tight')
+g.savefig(os.path.join(collect_dir,'figure5.png'),
           bbox_inches = 'tight')
 
 #fig,axes = plt.subplots(figsize = (70,40),

@@ -170,8 +170,10 @@ g.fig.legend(handles,
 # g.savefig(os.path.join(paper_dir,'supplymental cnn hidden layer decoding vgg+resnet (light).jpg'),
 #           # dpi = 300,
 #           bbox_inches = 'tight')
-g.savefig(os.path.join(collect_dir, 'supfigure10.eps'),
+g.savefig(os.path.join(collect_dir, 'supfigure6.eps'),
           dpi = 300,
+          bbox_inches = 'tight')
+g.savefig(os.path.join(collect_dir, 'supfigure6.png'),
           bbox_inches = 'tight')
 
 
@@ -226,8 +228,10 @@ g.fig.legend(handles,
 # g.savefig(os.path.join(paper_dir,'hidden better than cnn (light).jpg'),
 #           # dpi = 300,
 #           bbox_inches = 'tight')
-g.savefig(os.path.join(collect_dir,'supfigure11.eps'),
+g.savefig(os.path.join(collect_dir,'supfigure7.eps'),
           dpi = 300,
+          bbox_inches = 'tight')
+g.savefig(os.path.join(collect_dir,'supfigure7.png'),
           bbox_inches = 'tight')
 
 # # chance level cnn
