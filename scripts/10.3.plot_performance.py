@@ -150,7 +150,7 @@ g               = sns.relplot(
 (g.set_axis_labels('Noise level','ROC AUC')
    .set_titles('')
   .set(ylim = (0,1.01)))
-for ax_title,ax in zip(['AlexNet','Vgg19','MobileNet','DenseNet','ResNet50',],
+for ax_title,ax in zip(model_names,
                        g.axes[0,:]):
     ax.set(title = ax_title)
 for ax_label,ax in zip(np.sort(np.unique(df['activations'])),

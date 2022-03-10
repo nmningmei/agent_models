@@ -227,7 +227,7 @@ for ii_var,var in enumerate(noise_levels):
     results['cnn_pval'].append(cnn_pval)
     gc.collect()
     results_to_save = pd.DataFrame(results)
-    results_to_save.to_csv(os.path.join(results_dir,model_saving_name,'decodings.csv'),index = False)
+    # results_to_save.to_csv(os.path.join(results_dir,model_saving_name,'decodings.csv'),index = False)
 
 
 
