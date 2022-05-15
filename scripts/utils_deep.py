@@ -1057,9 +1057,9 @@ def make_decoder(decoder_name,n_jobs = 1,):
     #                  n_jobs         = n_jobs,# default to be 1
     #                  )
     rf = RandomForestClassifier(n_estimators = 100,
-                                criterion = 'entropy',
+                                criterion    = 'entropy',
                                 random_state = 12345,
-                                class_weights = 'balanced',
+                                class_weight = 'balanced',
                                 )
 
     # logistic regression
