@@ -32,12 +32,9 @@ from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import StratifiedShuffleSplit,cross_validate,permutation_test_score
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.utils import shuffle as sk_shuffle
 
-try:
-    from xgboost import XGBClassifier
-except:
-    pass
 output_act_func_dict = {'softmax':F.softmax, # softmax dim = 1
                         'sigmoid':torch.sigmoid,
                         'hinge':torch.nn.HingeEmbeddingLoss}
@@ -130,7 +127,7 @@ def noise_fuc(x,noise_level = 1):
     return x + generator.sample(x.shape)
 
 def simple_augmentations(image_resize = 128,noise_level = None):
-    if noise_level is not None:
+    if noise_level > 0:
         return transforms.Compose([
     transforms.Resize((image_resize,image_resize)),
     transforms.RandomHorizontalFlip(p = 0.5),
@@ -1045,20 +1042,25 @@ def make_decoder(decoder_name,n_jobs = 1,):
                      )
 
     # random forest implemented by XGBoost
-    xgb = XGBClassifier(
-                     learning_rate  = 1e-3, # not default
-                     max_depth      = 10, # not default
-                     n_estimators   = 100, # not default
-                     objective      = 'binary:logistic', # default
-                     booster        = 'gbtree', # default
-                     subsample      = 0.9, # not default
-                     colsample_bytree = 0.9, # not default
-                     reg_alpha      = 0, # default
-                     reg_lambda     = 1, # default
-                     random_state   = 12345, # not default
-                     importance_type= 'gain', # default
-                     n_jobs         = n_jobs,# default to be 1
-                     )
+    # xgb = XGBClassifier(
+    #                  learning_rate  = 1e-3, # not default
+    #                  max_depth      = 10, # not default
+    #                  n_estimators   = 100, # not default
+    #                  objective      = 'binary:logistic', # default
+    #                  booster        = 'gbtree', # default
+    #                  subsample      = 0.9, # not default
+    #                  colsample_bytree = 0.9, # not default
+    #                  reg_alpha      = 0, # default
+    #                  reg_lambda     = 1, # default
+    #                  random_state   = 12345, # not default
+    #                  importance_type= 'gain', # default
+    #                  n_jobs         = n_jobs,# default to be 1
+    #                  )
+    rf = RandomForestClassifier(n_estimators = 100,
+                                criterion = 'entropy',
+                                random_state = 12345,
+                                class_weights = 'balanced',
+                                )
 
     # logistic regression
     logitstic = LogisticRegression(random_state = 12345)
@@ -1077,7 +1079,7 @@ def make_decoder(decoder_name,n_jobs = 1,):
                                 )
     elif decoder_name == 'RF':
         decoder = make_pipeline(StandardScaler(),
-                                xgb,
+                                rf,
                                 )
     elif decoder_name == 'logit':
         decoder = make_pipeline(StandardScaler(),

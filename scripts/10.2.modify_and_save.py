@@ -28,7 +28,7 @@ activations = ['elu',
                'tanh',
                'linear',
                ]
-models = ['vgg19_bn','resnet50',]#'alexnet','densenet169','mobilenet']
+models = ['alexnet','densenet169','mobilenet']#['vgg19_bn','resnet50',]#'alexnet','densenet169','mobilenet']
 output_activations = ['softmax','sigmoid',]
 
 temp = np.array(list(itertools.product(*[units,dropouts,models,activations,output_activations])))

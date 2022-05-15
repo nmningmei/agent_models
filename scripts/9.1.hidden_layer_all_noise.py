@@ -62,7 +62,7 @@ testing                 = True #
 n_experiment_runs       = 20
 n_noise_levels          = 50
 n_permutations          = int(1e4)
-n_noise                 = 1
+n_noise                 = 2
 
 noise_levels    = np.concatenate([[0],[item for item in np.logspace(-1,3,n_noise_levels)]])
 
@@ -122,7 +122,7 @@ model_to_train                              = train_and_validation(
         train_root      = train_root,
         valid_root      = valid_root,
         n_noise         = n_noise,
-        noise_level     = None,
+        noise_level     = 0,
         )
 
 model_to_train.to('cpu')

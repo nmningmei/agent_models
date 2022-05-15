@@ -17,8 +17,8 @@ verbose = 1
 batch_size = 16
 node = 1
 core = 16
-mem = 4 * node * core
-cput = 24 * node * core
+mem = 4 
+cput = 24 
 units = [2,5,10,20,50,100,300] # one unit hidden layer cannot learn
 dropouts = [0,0.25,0.5,0.75]
 activations = ['elu',
@@ -46,9 +46,13 @@ else:
     os.mkdir(scripts_folder)
 os.mkdir(f'{scripts_folder}/outputs')
 
-add_on = """from shutil import copyfile
-copyfile('../utils_deep.py','utils_deep.py')
-"""
+# add_on = """from shutil import copyfile
+# copyfile('../utils_deep.py','utils_deep.py')
+# """
+
+from shutil import copyfile
+copyfile('utils_deep.py',os.path.join(scripts_folder,'utils_deep.py'))
+
 collections = []
 first_GPU,second_GPU = [],[]
 replace = False # change to second GPU
@@ -86,10 +90,10 @@ for ii,row in df.iterrows():
 #                    line = line.replace('20','1000')
                 elif "True #" in line:
                     line = line.replace("True","False")
-                elif "import utils_deep" in line:
-                    line = "{}\n{}".format(add_on,line)
-                elif "from sklearn import metrics" in line:
-                    line = line + '\n' + add_on
+                # elif "import utils_deep" in line:
+                #     line = "{}\n{}".format(add_on,line)
+                # elif "from sklearn import metrics" in line:
+                #     line = line + '\n' + add_on
                 elif "idx_GPU = 0" in line:
                     if replace:
                         line = line.replace('0','-1')
@@ -98,24 +102,31 @@ for ii,row in df.iterrows():
         new_file.close()
     new_batch_script_name = os.path.join(scripts_folder,f'SIM{ii+1}')
     content = f"""#!/bin/bash
-#PBS -q bcbl
-#PBS -l nodes={node}:ppn={core}
-#PBS -l mem={mem}gb
-#PBS -l cput={cput}:00:00
-#PBS -N SIM{ii+1}
-#PBS -o outputs/out_{ii+1}.txt
-#PBS -e outputs/err_{ii+1}.txt
-cd $PBS_O_WORKDIR
-export PATH="/scratch/ningmei/anaconda3/bin:/scratch/ningmei/anaconda3/condabin:$PATH"
-source activate keras-2.1.6_tensorflow-2.0.0
+#SBATCH --partition=regular
+#SBATCH --job-name=SIM{ii+1}
+#SBATCH --cpus-per-task={core}
+#SBATCH --nodes={node}
+#SBATCH --ntasks-per-node=1
+#SBATCH --time={cput}:00:00
+#SBATCH --mem-per-cpu={mem}G
+#SBATCH --output=outputs/out_{ii+1}.txt
+#SBATCH --error=outputs/err_{ii+1}.txt
+#SBATCH --mail-user=nmei@bcbl.eu
+
+source /scratch/ningmei/.bashrc
+conda activate bcbl
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/scratch/ningmei/anaconda3/lib
+module load FSL/6.0.0-foss-2018b
+cd $SLURM_SUBMIT_DIR
+
 pwd
 echo {new_scripts_name.split('/')[-1]}
-python "{new_scripts_name.split('/')[-1]}"
+python3 "{new_scripts_name.split('/')[-1]}"
     """
     with open(new_batch_script_name,'w') as f:
         f.write(content)
         f.close()
-    collections.append(f"qsub SIM{ii+1}")
+    collections.append(f"sbatch SIM{ii+1}")
 
 with open(f'{scripts_folder}/qsub_jobs.py','w') as f:
     f.write("""import os\nimport time""")
@@ -128,12 +139,12 @@ with open(f'{scripts_folder}/qsub_jobs.py','a') as f:
             f.write(f'time.sleep(0.1)\nos.system("{line}")\n')
     f.close()
 
-from glob import glob
-all_scripts = glob(os.path.join(scripts_folder,'simulation*.py'))
+# from glob import glob
+# all_scripts = glob(os.path.join(scripts_folder,'simulation*.py'))
 
-with open(os.path.join(scripts_folder,'run_all.py'),'w') as f:
-    f.write('import os\n')
-    for files in all_scripts:
-        file_name = files.split('bash/')[-1]
-        f.write(f'os.system("python {file_name}")\n')
-    f.close()
+# with open(os.path.join(scripts_folder,'run_all.py'),'w') as f:
+#     f.write('import os\n')
+#     for files in all_scripts:
+#         file_name = files.split('bash/')[-1]
+#         f.write(f'os.system("python {file_name}")\n')
+#     f.close()
