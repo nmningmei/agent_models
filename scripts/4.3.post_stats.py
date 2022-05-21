@@ -51,9 +51,21 @@ working_data = glob(os.path.join(working_dir,'*','*.csv'))
 
 df              = []
 for f in working_data:
-    if ('inception' not in f):
+    if ('densenet' not in f):
         temp                                    = pd.read_csv(f)
         k                                       = f.split('/')[-2]
+        try:
+            model,hidde_unit,hidden_ac,drop,out_ac  = k.split('_')
+        except:
+            _model,_model_,hidde_unit,hidden_ac,drop,out_ac  = k.split('_')
+            model = f'{_model}_{_model_}'
+            
+        if 'drop' not in temp.columns:
+            temp['drop']                        = float(drop)
+        df.append(temp)
+    else:
+        temp = pd.read_csv(f)
+        k = f.split('/')[-2]
         model,hidde_unit,hidden_ac,drop,out_ac  = k.split('_')
         if 'drop' not in temp.columns:
             temp['drop']                        = float(drop)
@@ -73,88 +85,10 @@ df['x']             = df['x'].apply(lambda x: [x + np.random.normal(0,0.1,size =
 df                  = df.sort_values(['hidden_activation','output_activation'])
 df['activations']   = df['hidden_activation'] + '_' +  df['output_activation']
 
-idxs            = np.logical_or(df['model'] == 'CNN',df['model'] == 'linear-SVM')
-df_picked       = df.loc[idxs,:]
+df_stat = pd.read_csv(os.path.join(paper_dir,
+                            'CNN_SVM_stats.csv'))
 
-col_indp = ['hidden_units','hidden_activation','output_activation','noise_level','drop','model_name']
-for col in col_indp:
-    print(col, pd.unique(df_picked[col]))
-
-
-
-df_stat = {name:[] for name in col_indp}
-df_stat['CNN_performance'] = []
-df_stat['SVM_performance'] = []
-df_stat['CNN_chance_performance']= []
-df_stat['CNN_pval'] = []
-df_stat['SVM_pval'] = []
-for attri,df_sub in tqdm(df_picked.groupby(col_indp),desc='generate features'):
-    if df_sub.shape[0] == 1:
-        # [df_stat[col].append(df_sub[col].values[0]) for col in col_indp]
-        # df_stat['CNN_performance'].append(df_sub['score_mean'].values[0])
-        # df_stat['CNN_pval'].append(df_sub['pval'].values[0])
-        # df_stat['SVM_performance'].append(0)
-        # df_stat['SVM_pval'].append(1)
-        pass
-    elif df_sub.shape[0] > 1:
-        for model,df_sub_sub in df_sub.groupby('model'):
-            if model == 'CNN':
-                [df_stat[col].append(df_sub[col].values[0]) for col in col_indp]
-                df_stat['CNN_performance'].append(df_sub_sub['score_mean'].values[0])
-                df_stat['CNN_pval'].append(df_sub_sub['pval'].values[0])
-                df_stat['CNN_chance_performance'].append(df_sub_sub['chance_mean'].values[0])
-                
-            elif model == 'linear-SVM':
-                df_stat['SVM_performance'].append(df_sub_sub['score_mean'].values[0])
-                df_stat['SVM_pval'].append(df_sub_sub['pval'].values[0])
-    else:
-        print('what?')
-df_stat = pd.DataFrame(df_stat)
-df_stat.to_csv(os.path.join(paper_dir.replace('figures','stats'),
-                            'CNN_SVM_stats.csv'),index = False)
-
-df_chance = df_stat[np.logical_or(
-                        df_stat['CNN_pval'] > 0.05,
-                        df_stat['CNN_performance'] < df_stat['CNN_chance_performance'])
-                    ]
-
-# df_poor = df_stat[np.logical_and(df_stat['CNN_performance'].values > 0.5,
-#                                  df_stat['CNN_pval'].values < 0.05)]
-# a = df_stat['SVM_performance'].values
-# b = df_stat['CNN_performance'].values
-# diff = a - b
-# t = diff.mean()
-# null = diff - diff.mean()
-# null_dist = np.array([np.random.choice(null,size=diff.shape[0],replace = True).mean() for _ in tqdm(range(int(1e5)))])
-# p = ((np.sum(null_dist >= t)) + 1) /(null_dist.shape[0] + 1)
-
-# fig,axes = plt.subplots(figsize = (24,12),ncols = 2)
-# ax = axes[0]
-# df_temp = pd.DataFrame(diff.reshape(-1,1),columns = ['SVM - CNN'])
-# df_temp['x'] = 0
-# ax = sns.violinplot(x = 'x',
-#                     y = 'SVM - CNN',
-#                     data = df_temp,
-#                     cut = 0,
-#                     inner = 'quartile',
-#                     ax = ax,
-#                     )
-# ax.axhline(0,linestyle = '--',color = 'black',alpha = 0.6)
-# ax.set_xlabel('');ax.set_xticklabels([])
-# ax = axes[1]
-# from collections import Counter
-# temp = dict(Counter(df_stat['SVM_pval'] < 0.05))
-# ax.bar(0,temp[True]/np.sum(list(temp.values())),color = 'green',)
-# ax.bar(1,temp[False]/np.sum(list(temp.values())),color = 'red')
-# ax.set(xticks = [0,1],ylabel = 'Proportion')
-# ax.set_xticklabels(['p < 0.05','p >= 0.05'])
-# fig.savefig(os.path.join(paper_dir,'diff of SVM and CNN.jpeg'),
-#             dpi = 300,
-#             bbox_inches = 'tight')
-# ax.set_ylabel('ROC AUC')
-# ax.get_legend().set_title("")
-# for obj,text in zip(ax.get_legend().get_texts(),['SVM decoding performance','CNN performance']):
-#     obj.set_text(text)
+df_chance = df_stat[df_stat['CNN_pval'] > 0.05]
 
 ps = {'chance_all':0,
       'chance_high':0}
@@ -253,16 +187,6 @@ fig.savefig(os.path.join(figure_dir,'CNN chance noise high.jpeg'),
             bbox_inches = 'tight')
 # sns.relplot(x = 'noise_level',y = 'diff',hue = 'labels',data = df_chance)
 
-
-le = preprocessing.LabelEncoder()
-hidden_activation = le.fit_transform(df_chance['hidden_activation'].values)
-output_activation = le.fit_transform(df_chance['output_activation'].values)
-model_name  = le.fit_transform(df_chance['model_name'].values)
-
-df_chance['hidden'] = hidden_activation
-df_chance['output'] = output_activation
-df_chance['model_names'] = model_name
-
 labels = []
 for ii, row in tqdm(df_chance.iterrows(),desc = 'generate labels'):
     cnn_pval = row['CNN_pval']
@@ -272,9 +196,17 @@ for ii, row in tqdm(df_chance.iterrows(),desc = 'generate labels'):
     else:
         labels.append(0)
 labels = np.array(labels)
-col_features = ['hidden_units','hidden','output','noise_level','drop','model_names']
-features = df_chance[col_features].values
 
+col_features = ['# of hidden units','hidden_activation','output_activation',
+                'noise_level','Dropout rate','Model name']
+
+hidden_activation = preprocessing.LabelEncoder().fit(df_chance['hidden_activation'].values)
+df_chance['hidden_activation'] = hidden_activation.transform(df_chance['hidden_activation'].values)
+output_activation = preprocessing.LabelEncoder().fit(df_chance['output_activation'].values)
+df_chance['output_activation'] = output_activation.transform(df_chance['output_activation'].values)
+model_name = preprocessing.LabelEncoder().fit(df_chance['Model name'].values)
+df_chance['Model name'] = model_name.transform(df_chance['Model name'].values)
+features = df_chance[col_features].values
 
 X,y = sk_shuffle(features,labels)
 
@@ -304,19 +236,24 @@ for _clf,(idx_train,idx_test) in tqdm(zip(cross_res['estimator'],cv.split(X,y)),
 importance = pd.DataFrame(importance)
 df_plot = pd.melt(importance,id_vars=None,value_vars=col_features,)
 
-# weights = np.array([reg.steps[-1][-1].coef_[0] for reg in cross_res['estimator']])
-# weights = pd.DataFrame(weights,columns = col_features)
-# df_plot = pd.melt(weights,id_vars=None,value_vars=col_features,)
-
 df_plot.columns = ['Attributes','Feature Importance']
-df_plot['Attributes'] = df_plot['Attributes'].map({'hidden_units':'Hidden Units',
-                                                     'hidden':'Hidden Activation Function',
-                                                     'output':'Output Activation Function',
-                                                     'noise_level':'Noise Level',
-                                                     'drop':'Dropout Rate',
-                                                     'model_names':'Model Architecture'})
-fig,ax = plt.subplots(figsize = (10,6))
-ax = sns.violinplot(y = 'Attributes',x = 'Feature Importance',data= df_plot,ax = ax)
+
+fig,ax = plt.subplots(figsize = (16,16))
+ax = sns.violinplot(y = 'Attributes',x = 'Feature Importance',data= df_plot,ax = ax,
+                    inner = 'quartile',cut = 0,
+                    order = ['noise_level',
+                             'Model name',
+                             '# of hidden units',
+                             'hidden_activation',
+                             'Dropout rate',
+                             'output_activation',])
+ax.set_yticklabels(['Noise levels',
+                      'CNN backbone',
+                      '# of hidden units',
+                      'Hidden activation function',
+                      'Dropout rate',
+                      'Output activation function',],
+                   rotation = 0,)
 df_plot.to_csv(os.path.join(paper_dir.replace('figures','stats'),
                             'feature_importance.csv'),index=False)
 fig.savefig(os.path.join(figure_dir,'feature importance.jpeg'),dpi = 300,bbox_inches = 'tight')

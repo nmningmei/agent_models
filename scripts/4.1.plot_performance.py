@@ -18,7 +18,7 @@ import numpy   as np
 import seaborn as sns
 
 import matplotlib
-matplotlib.pyplot.switch_backend('agg')
+# matplotlib.pyplot.switch_backend('agg')
 
 from matplotlib import pyplot as plt
 from matplotlib.patches import Patch
@@ -34,7 +34,7 @@ sns.set_context('paper',font_scale=2)
 # plt.rcParams['ytick.labelsize'] = 32
 # plt.rcParams['xtick.labelsize'] = 32
 
-working_dir     = '../../another_git/agent_models/results'
+working_dir     = '../results/all_for_all'#'../../another_git/agent_models/results'
 figure_dir      = '../figures'
 collect_dir     = '/export/home/nmei/nmei/properties_of_unconscious_processing/all_figures'
 marker_factor   = 10
@@ -56,9 +56,21 @@ def simpleaxes(ax):
 
 df              = []
 for f in working_data:
-    if ('inception' not in f):
+    if ('densenet' not in f):
         temp                                    = pd.read_csv(f)
         k                                       = f.split('/')[-2]
+        try:
+            model,hidde_unit,hidden_ac,drop,out_ac  = k.split('_')
+        except:
+            _model,_model_,hidde_unit,hidden_ac,drop,out_ac  = k.split('_')
+            model = f'{_model}_{_model_}'
+            
+        if 'drop' not in temp.columns:
+            temp['drop']                        = float(drop)
+        df.append(temp)
+    else:
+        temp = pd.read_csv(f)
+        k = f.split('/')[-2]
         model,hidde_unit,hidden_ac,drop,out_ac  = k.split('_')
         if 'drop' not in temp.columns:
             temp['drop']                        = float(drop)
@@ -85,19 +97,33 @@ print(df['x'].values)
 
 df['x']             = df['x'].apply(lambda x: [x + np.random.normal(0,0.1,size = 1)][0][0])
 df                  = df.sort_values(['hidden_activation','output_activation'])
-df['activations']   = df['hidden_activation'] + '-' +  df['output_activation']
-
-idxs            = np.logical_or(df['model'] == 'CNN',df['model'] == 'linear-SVM')
-df_plot         = df.loc[idxs,:]
+df['activations']   = df['hidden_activation'] + '_' +  df['output_activation']
+df['Model name']    = df['model_name'].map({'vgg19_bn':'VGG19','resnet50':'ResNet50',
+                                            'alexnet':'AlexNet',
+                                            'densenet169':'DenseNet169',
+                                            'mobilenet':'MobileNetV2'})
+df['Dropout rate']  = df['drop']
+df['# of hidden units'] = df['hidden_units']
+id_vars = ['x',
+           'noise_level',
+           '# of hidden units','Dropout rate',
+           'activations',
+           'Model name',
+           ]
+value_vars = ['svm_score_mean','cnn_score_mean']
+df_plot = pd.melt(df,id_vars = id_vars,value_vars = value_vars)
+df_plot['model'] = df_plot['variable'].apply(lambda x:x.split('_')[0].upper())
+df_plot['score_mean'] = df_plot['value']
+col_order = ['AlexNet','VGG19','MobileNetV2','DenseNet169','ResNet50']
 
 g               = sns.relplot(
                 x           = 'x',
                 y           = 'score_mean',
                 hue         = 'model',
-                size        = 'drop',
-                style       = 'hidden_units',
-                col         = 'model_name',
-                col_order   = ['alexnet','vgg19','mobilenet','densenet','resnet',],
+                size        = 'Dropout rate',
+                style       = '# of hidden units',
+                col         = 'Model name',
+                col_order   = col_order,
                 row         = 'activations',
                 palette     = sns.xkcd_palette(['black','blue']),
                 alpha       = alpha_level,
@@ -120,22 +146,14 @@ g               = sns.relplot(
 (g.set_axis_labels('Noise level','ROC AUC')
    .set_titles('')
   .set(ylim = (0,1.01)))
-for ax_title,ax in zip(['AlexNet','Vgg19','MobileNet','DenseNet','ResNet50',],
+for ax_title,ax in zip(col_order,
                        g.axes[0,:]):
     ax.set(title = ax_title)
 for ax_label,ax in zip(np.sort(np.unique(df['activations'])),
                        g.axes[:,0]):
-    ax.annotate(ax_label.replace('-',r' $\rightarrow$ '),
+    ax.annotate(ax_label.replace('_',r' $\rightarrow$ '),
                 xy = (0.2,0.25),)
 handles, labels             = g.axes[0][0].get_legend_handles_labels()
-temp = []
-for item in labels:
-    if item == 'drop':
-        item = 'Dropout rate'
-    elif item == 'hidden_units':
-        item = '# of hidden units'
-    temp.append(item)
-labels = temp
 # convert the circle to irrelevant patches
 handles[1]                  = Patch(facecolor = 'black')
 handles[2]                  = Patch(facecolor = 'blue',)
@@ -144,12 +162,13 @@ g.fig.legend(handles,
              labels,
              loc            = 'center right',
              bbox_to_anchor = (1.05,0.5))
-# g.savefig(os.path.join(figure_dir,'CNN_performance.jpeg'),
-#           dpi               = 300,
-#           bbox_inches       = 'tight')
-# g.savefig(os.path.join(figure_dir,'CNN_performance (light).jpeg'),
-# #          dpi = 300,
-#           bbox_inches       = 'tight')
+
+g.savefig(os.path.join(figure_dir,'CNN_performance.jpeg'),
+          dpi               = 300,
+          bbox_inches       = 'tight')
+g.savefig(os.path.join(figure_dir,'CNN_performance (light).jpeg'),
+#          dpi = 300,
+          bbox_inches       = 'tight')
 # g.savefig(os.path.join(paper_dir,'CNN_performance.jpeg'),
 #           dpi               = 300,
 #           bbox_inches       = 'tight')
@@ -162,69 +181,62 @@ g.savefig(os.path.join(collect_dir,'figure4.pdf'),
 g.savefig(os.path.join(collect_dir,'figure4.png'),
           bbox_inches = 'tight')
 
-
 # plot the decoding when CNN failed
-idxs            = np.logical_or(df['model'] == 'CNN',df['model'] == 'linear-SVM')
-df_picked       = df.loc[idxs,:]
-col_indp = ['hidden_units','hidden_activation','output_activation','noise_level','drop','model_name']
-for col in col_indp:
-    print(col, pd.unique(df_picked[col]))
-df_stat = {name:[] for name in col_indp}
-df_stat['CNN_performance'] = []
-df_stat['SVM_performance'] = []
-df_stat['CNN_chance_performance']= []
-df_stat['CNN_pval'] = []
-df_stat['SVM_pval'] = []
-for attri,df_sub in tqdm(df_picked.groupby(col_indp),desc='generate features'):
-    if df_sub.shape[0] == 1:
-        # [df_stat[col].append(df_sub[col].values[0]) for col in col_indp]
-        # df_stat['CNN_performance'].append(df_sub['score_mean'].values[0])
-        # df_stat['CNN_pval'].append(df_sub['pval'].values[0])
-        # df_stat['SVM_performance'].append(0)
-        # df_stat['SVM_pval'].append(1)
-        pass
-    elif df_sub.shape[0] > 1:
-        for model,df_sub_sub in df_sub.groupby('model'):
-            if model == 'CNN':
-                [df_stat[col].append(df_sub[col].values[0]) for col in col_indp]
-                df_stat['CNN_performance'].append(df_sub_sub['score_mean'].values[0])
-                df_stat['CNN_pval'].append(df_sub_sub['pval'].values[0])
-                df_stat['CNN_chance_performance'].append(df_sub_sub['chance_mean'].values[0])
-                
-            elif model == 'linear-SVM':
-                df_stat['SVM_performance'].append(df_sub_sub['score_mean'].values[0])
-                df_stat['SVM_pval'].append(df_sub_sub['pval'].values[0])
-    else:
-        print('what?')
+df_stat = {'noise_level':[],
+           '# of hidden units':[],
+           'Dropout rate':[],
+           'hidden_activation':[],
+           'output_activation':[],
+           'Model name':[],
+           'CNN_performance':[],
+           'SVM_performance':[],
+           'CNN_pval':[],
+           'SVM_pval':[],
+           }
+for attr, df_sub in tqdm(df.groupby(['noise_level',
+                                '# of hidden units',
+                                'Dropout rate',
+                                'hidden_activation',
+                                'output_activation',
+                                'Model name',])):
+    for col in ['noise_level',
+                '# of hidden units',
+                'Dropout rate',
+                'hidden_activation',
+                'output_activation',
+                'Model name']:
+        df_stat[col].append(df_sub[col].values[0])
+    df_stat['CNN_performance'].append(df_sub['cnn_score_mean'].values[0])
+    df_stat['SVM_performance'].append(df_sub['svm_score_mean'].values[0])
+    df_stat['CNN_pval'].append(df_sub['cnn_pval'].values[0])
+    df_stat['SVM_pval'].append(df_sub['svm_cnn_pval'].values[0])
+
 df_stat = pd.DataFrame(df_stat)
 df_stat.to_csv(os.path.join(paper_dir,
                             'CNN_SVM_stats.csv'),index = False)
 
-df_chance = df_stat[np.logical_or(
-                        df_stat['CNN_pval'] > 0.05,
-                        df_stat['CNN_performance'] < df_stat['CNN_chance_performance'])
-                    ]
+df_chance = df_stat[df_stat['CNN_pval'] > 0.05]
 
 
 df_plot                         = df_chance.copy()#loc[idxs,:]
 df_plot['Decode Above Chance']  = df_plot['SVM_pval'] < 0.05
-df_plot = df_plot.sort_values(['hidden_units','drop','model_name'])
-df_plot['hidden_units'] = df_plot['hidden_units'].astype('category')
-print(pd.unique(df_plot['hidden_units']))
-k                               = len(pd.unique(df_plot['hidden_units']))
+df_plot = df_plot.sort_values(['# of hidden units','Dropout rate','Model name'])
+df_plot['# of hidden units'] = df_plot['# of hidden units'].astype('category')
+print(pd.unique(df_plot['# of hidden units']))
+k                               = len(pd.unique(df_plot['# of hidden units']))
 df_plot['x']                    = df_plot['noise_level'].round(9).map(x_map)
 df_plot['x']                    = df_plot['x'].apply(lambda x: [x + np.random.normal(0,0.1,size = 1)][0][0])
 
 g                               = sns.relplot(
                 x               = 'x',
                 y               = 'SVM_performance',
-                size            = 'drop',
-                hue             = 'hidden_units',
-                hue_order       = pd.unique(df_plot['hidden_units']),
+                size            = 'Dropout rate',
+                hue             = '# of hidden units',
+                hue_order       = pd.unique(df_plot['# of hidden units']),
                 style           = 'Decode Above Chance',
                 style_order     = [True, False],
-                row             = 'model_name',
-                row_order       = ['alexnet','vgg19','mobilenet','densenet','resnet',],
+                row             = 'Model name',
+                row_order       = col_order,
                 alpha           = alpha_level,
                 data            = df_plot,
                 palette         = sns.color_palette("bright")[:k],
@@ -238,7 +250,7 @@ g                               = sns.relplot(
         xticklabels = [0,noise_levels.max()]
         ) for ax in g.axes.flatten()]
 [simpleaxes(ax) for ax in g.axes.flatten()]
-for ax_title,ax in zip(['AlexNet','Vgg19','MobileNet','DenseNet','ResNet50',],
+for ax_title,ax in zip(col_order,
                        g.axes.flatten()):
     ax.set(title = ax_title)
 [ax.axhline(0.5,
@@ -267,13 +279,13 @@ for ax_title,ax in zip(['AlexNet','Vgg19','MobileNet','DenseNet','ResNet50',],
 #          ) for ax in g.axes.flatten()[:1]]
 
 temp = []
-for model_name,ax in zip(['alexnet','vgg19','mobilenet','densenet','resnet',],g.axes.flatten()):
-    df_sub = df_plot[df_plot['model_name'] == model_name]
+for model_name,ax in zip(col_order,g.axes.flatten()):
+    df_sub = df_plot[df_plot['Model name'] == model_name]
     df_sub['groups'] = df_sub['x'].apply(cut_bins)
     counter = df_sub.groupby(['groups','Decode Above Chance']).count().reset_index()[['groups','Decode Above Chance','x']]
     sum_of_group = counter['x'].values[::2] + counter['x'].values[1::2]
     counter['proportion'] = counter['x'].values / np.repeat(sum_of_group,2)
-    counter['model_name'] = model_name
+    counter['Model name'] = model_name
     temp.append(counter)
     
     # ax.axvline(bins[1],linestyle = '--' ,color = 'black', alpha = 0.6)
@@ -321,12 +333,12 @@ g.fig.legend(handles,
 
 # g.fig.suptitle('Linear SVM decoding the hidden layers of CNNs that failed to descriminate living vs. nonliving',
 #                y = 1.02)
-# g.savefig(os.path.join(figure_dir,'decoding_performance.jpeg'),
-#           dpi = 300,
-#           bbox_inches = 'tight')
-# g.savefig(os.path.join(figure_dir,'decoding_performance (light).jpeg'),
-# #          dpi = 300,
-#           bbox_inches = 'tight')
+g.savefig(os.path.join(figure_dir,'decoding_performance.jpeg'),
+          dpi = 300,
+          bbox_inches = 'tight')
+g.savefig(os.path.join(figure_dir,'decoding_performance (light).jpeg'),
+#          dpi = 300,
+          bbox_inches = 'tight')
 # g.savefig(os.path.join(paper_dir,'decoding_performance.jpeg'),
 #           dpi = 300,
 #           bbox_inches = 'tight')
