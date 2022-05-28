@@ -31,8 +31,12 @@ paper_dir       = '/export/home/nmei/nmei/properties_of_unconscious_processing/f
 marker_factor   = 10
 marker_type     = ['8','s','p','*','+','D','o']
 alpha_level     = .75
-dict_folder = dict(Resnet50 = 'resnet50',
-                   VGG19 = 'vgg19_bn')
+model_names = ['AlexNet','VGG19','MobileNetV2','DenseNet169','ResNet50']
+dict_folder = dict(ResNet50 = 'resnet50',
+                   VGG19 = 'vgg19_bn',
+                   AlexNet = 'alexnet',
+                   MobileNetV2 = 'mobilenet',
+                   DenseNet169 = 'densenet169')
 n_noise_levels  = 50
 noise_levels    = np.concatenate([[0],[item for item in np.logspace(-1,3,n_noise_levels)]])
 x_map           = {round(item,9):ii for ii,item in enumerate(noise_levels)}
@@ -77,9 +81,9 @@ df_chance_melt_plot['Type'] = df_chance_melt_plot['Type'].map({'CNN':'CNN',
                                        'FIRST':'Decode first layer'})
 df_chance_melt_plot['model_name'] = df_chance_melt_plot['model_name'].map({val:key for key,val in dict_folder.items()})
 
-df_plot['model_name'] = df_plot['model_name'].map({'VGG19':'Vgg19','Resnet50':'ResNet50'})
-df_chance_melt_plot['model_name'] = df_chance_melt_plot['model_name'].map({
-    'VGG19':'Vgg19','Resnet50':'ResNet50'})
+# df_plot['model_name'] = df_plot['model_name'].map({'VGG19':'Vgg19','Resnet50':'ResNet50'})
+# df_chance_melt_plot['model_name'] = df_chance_melt_plot['model_name'].map({
+#     'VGG19':'Vgg19','Resnet50':'ResNet50'})
 
 def simpleaxes(ax):
     ax.spines['top'].set_visible(False)
@@ -94,12 +98,12 @@ xargs = dict(x           = 'x',
              alpha       = alpha_level,
              s           = 200)
 fig,axes = plt.subplots(figsize = (20,12),
-                        nrows = 2,
+                        nrows = 5,
                         ncols = 2,
                         sharex = False,
                         sharey = True,
                         )
-for ii,(axes_row,model_picked) in enumerate(zip(axes,['Vgg19','ResNet50'])):
+for ii,(axes_row,model_picked) in enumerate(zip(axes,model_names)):
     df_plot_row = df_plot[df_plot['model_name'] == model_picked]
     df_chance_plot_row = df_chance_melt_plot[df_chance_melt_plot['model_name'] == model_picked]
     # left
@@ -133,7 +137,7 @@ for ii,(axes_row,model_picked) in enumerate(zip(axes,['Vgg19','ResNet50'])):
            xticklabels = [0,df_chance_melt_plot['noise_level'].max().round(1)],
            title = model_picked,
            ylim = (0,None))
-    if ii == 0:
+    if ii == 2:
         ax.legend(handles,['FCNN performance','Decoding from the first layer'],loc = 'best')
     
 [ax.axhline(0.5,
@@ -143,8 +147,11 @@ for ii,(axes_row,model_picked) in enumerate(zip(axes,['Vgg19','ResNet50'])):
             lw              = 1,
             ) for ax in axes.flatten()]
 [simpleaxes(ax) for ax in axes.flatten()]
-# fig.legend(handles,labels,loc = (0.65,0.8),)
+fig.legend(handles,labels,loc = (0.65,0.8),)
 fig.savefig(os.path.join(collect_dir,'supfigure11.eps'),
+            dpi = 300,
+            bbox_inches = 'tight')
+fig.savefig(os.path.join('../figures','cnn_first_layer.jpg'),
             dpi = 300,
             bbox_inches = 'tight')
 

@@ -19,6 +19,28 @@ import matplotlib
 from matplotlib import pyplot as plt
 from matplotlib.patches import Patch
 
+def load_concat_df(working_data,n_noise_levels = 50):
+    df              = []
+    for f in working_data:
+        temp                                    = pd.read_csv(f)
+        df.append(temp)
+    df              = pd.concat(df)
+    # rename columns
+    noise_levels    = np.concatenate([[0],[item for item in np.logspace(-1,3,n_noise_levels)]])
+    x_map           = {round(item,9):ii for ii,item in enumerate(noise_levels)}
+    inverse_x_map   = {round(value,9):key for key,value in x_map.items()}
+    df['x']             = df['noise_level'].round(9).map(x_map)
+    df['x']             = df['x'].apply(lambda x: [x + np.random.normal(0,0.1,size = 1)][0][0])
+    df                  = df.sort_values(['hidden_activation','output_activation'])
+    df['activations']   = df['hidden_activation'] + '_' +  df['output_activation']
+    df['Model name']    = df['model_name'].map({'vgg19_bn':'VGG19','resnet50':'ResNet50',
+                                                'alexnet':'AlexNet',
+                                                'densenet169':'DenseNet169',
+                                                'mobilenet':'MobileNetV2'})
+    df['Dropout rate']  = df['dropout']
+    df['# of hidden units'] = df['hidden_units']
+    return df,x_map,inverse_x_map
+
 sns.set_style('white')
 sns.set_context('paper',font_scale = 2)
 # from matplotlib import rc
@@ -41,7 +63,7 @@ if not os.path.exists(figure_dir):
 
 working_data = glob(os.path.join(working_dir,'*','decodings.csv'))
 
-paper_dir = '/export/home/nmei/nmei/properties_of_unconscious_processing/figures'
+paper_dir = figure_dir#'/export/home/nmei/nmei/properties_of_unconscious_processing/figures'
 collect_dir = '/export/home/nmei/nmei/properties_of_unconscious_processing/all_figures'
 def simpleaxes(ax):
     ax.spines['top'].set_visible(False)
@@ -50,28 +72,15 @@ def simpleaxes(ax):
     ax.tick_params(axis = 'y',direction = 'out')
 idx_noise_applied = 13.25 # fit and predict by a linear regression, don't forget to apply log10
 
-df              = []
-for f in working_data:
-    if ('densenet' not in f):
-        temp                                    = pd.read_csv(f)
-        k                                       = f.split('/')[-2]
-        try:
-            model,hidde_unit,hidden_ac,drop,out_ac  = k.split('_')
-        except:
-            _model,_model_,hidde_unit,hidden_ac,drop,out_ac  = k.split('_')
-            model = f'{_model}_{_model_}'
-            
-        if 'drop' not in temp.columns:
-            temp['drop']                        = float(drop)
-        df.append(temp)
-df              = pd.concat(df)
 
-model_names     = ['VGG19','Resnet50']
+
+model_names     = ['AlexNet','VGG19','MobileNetV2','DenseNet169','ResNet50']
 n_noise_levels  = 50
 noise_levels    = np.concatenate([[0],[item for item in np.logspace(-1,3,n_noise_levels)]])
 x_map           = {round(item,9):ii for ii,item in enumerate(noise_levels)}
 inverse_x_map   = {round(value,9):key for key,value in x_map.items()}
 print(x_map,inverse_x_map)
+df,x_map,inverse_x_map = load_concat_df(working_data,n_noise_levels)
 
 df['x']         = df['noise_level'].round(9).map(x_map)
 print(df['x'].values)
@@ -79,8 +88,11 @@ print(df['x'].values)
 df['x']             = df['x'].apply(lambda x: [x + np.random.normal(0,0.1,size = 1)][0][0])
 df                  = df.sort_values(['hidden_activation','output_activation'])
 df['activations']   = df['hidden_activation'] + '_' +  df['output_activation']
-df['Model name']    = df['model_name'].map({'vgg19_bn':'VGG19','resnet50':'Resnet50'})
-df['Dropout rate']  = df['drop']
+df['Model name']    = df['model_name'].map({'vgg19_bn':'VGG19','resnet50':'ResNet50',
+                                            'alexnet':'AlexNet',
+                                            'mobilenet':'MobileNetV2',
+                                            'densenet169':'DenseNet169'})
+df['Dropout rate']  = df['dropout']
 df['# of hidden units']  = df['hidden_units']
 
 # plot cnn and svm on hidden layer
@@ -167,14 +179,14 @@ g.fig.legend(handles,
              labels,
              loc            = "center right",
              bbox_to_anchor = (1.05,0.5))
-# g.savefig(os.path.join(paper_dir,
-#                        'trained with noise performance.jpg'),
+g.savefig(os.path.join(paper_dir,
+                        'trained with noise performance.jpg'),
+          bbox_inches = 'tight')
+# g.savefig(os.path.join(collect_dir,'supfigure8.eps'),
+#           dpi = 300,
 #           bbox_inches = 'tight')
-g.savefig(os.path.join(collect_dir,'supfigure8.eps'),
-          dpi = 300,
-          bbox_inches = 'tight')
-g.savefig(os.path.join(collect_dir,'supfigure8.png'),
-          bbox_inches = 'tight')
+# g.savefig(os.path.join(collect_dir,'supfigure8.png'),
+#           bbox_inches = 'tight')
 
 
 # direct comparison between cnn and hidden layer
@@ -217,20 +229,32 @@ handles, labels             = g.axes[0][0].get_legend_handles_labels()
 # convert the circle to irrelevant patches
 handles[1]                  = Patch(facecolor = 'blue')
 handles[2]                  = Patch(facecolor = 'orange',)
+handles[3]                  = Patch(facecolor = 'green',)
+handles[4]                  = Patch(facecolor = 'yellow',)
+handles[5]                  = Patch(facecolor = 'purple',)
 g._legend.remove()
 g.fig.legend(handles,
              labels,
              loc            = "center right",
              bbox_to_anchor = (1.05,0.5))
-# g.savefig(os.path.join(paper_dir,
-#                        'trained with noise difference between cnn and svm.jpg'),
-#           dpi = 100,
+g.savefig(os.path.join(paper_dir,
+                        'trained with noise difference between cnn and svm.jpg'),
+          dpi = 100,
+          bbox_inches = 'tight')
+# g.savefig(os.path.join(collect_dir,'supfigure9.eps'),
+#           dpi = 300,
 #           bbox_inches = 'tight')
-g.savefig(os.path.join(collect_dir,'supfigure9.eps'),
-          dpi = 300,
-          bbox_inches = 'tight')
-g.savefig(os.path.join(collect_dir,'supfigure9.png'),
-          bbox_inches = 'tight')
+# g.savefig(os.path.join(collect_dir,'supfigure9.png'),
+#           bbox_inches = 'tight')
+
+bins = np.array([-0.5,idx_noise_applied,n_noise_levels + 1.5],dtype = 'float')
+def cut_bins(x):
+    if bins[0] <= x < bins[1]:
+        return 'low'
+    # elif bins[1] <= x < bins[2]:
+    #     return 'medium'
+    else:
+        return 'high'
 
 # chance level cnn
 df_chance = df[df['cnn_pval' ] > 0.05]
@@ -242,16 +266,15 @@ df_plot['# of hidden units'] = df_plot['# of hidden units'].astype('category')
 k                               = len(pd.unique(df_plot['# of hidden units']))
 df_plot['x']                    = df_plot['noise_level'].round(9).map(x_map)
 df_plot['x']                    = df_plot['x'].apply(lambda x: [x + np.random.normal(0,0.1,size = 1)][0][0])
+df_plot['i']                    = df_plot['noise_level'].round(9).map(x_map)
+df_plot['groups']               = df_plot['i'].apply(cut_bins)
+# compute the proportions
+temp = df_plot.groupby(['Model name','Decode Above Chance']).sum().reset_index()
+temp_sum = temp['i'].values.reshape(-1,2).sum(1)
+temp_sum = np.repeat(temp_sum,2)
+temp['sum'] = temp_sum
+temp['proportion'] = temp['i'] / temp['sum']
 
-bins = np.array([-0.5,idx_noise_applied,n_noise_levels + 1.5],dtype = 'float')
-def cut_bins(x):
-    if bins[0] <= x < bins[1]:
-        return 'low'
-    # elif bins[1] <= x < bins[2]:
-    #     return 'medium'
-    else:
-        return 'high'
-    
 g                               = sns.relplot(
                 x               = 'x',
                 y               = 'svm_score_mean',
@@ -284,31 +307,19 @@ g                               = sns.relplot(
             alpha           = 1.,
             lw              = 1,
             ) for ax in g.axes.flatten()]
-# [ax.text(idx_noise_applied - 1.2,
-#           0.8,
-#           'Low noise',
-#           rotation = 90, 
-#           va = 'center',
-#           ) for ax in g.axes.flatten()]
-# [ax.text(idx_noise_applied + 0.1,
-#           0.8,
-#           'High noise',
-#           rotation = 270, 
-#           va = 'center',
-#           ) for ax in g.axes.flatten()]
 [ax.set(xticks = [0,n_noise_levels],
         xticklabels = [0,noise_levels.max()]
         ) for ax in g.axes.flatten()]
 
-temp = []
+df_proportion = []
 for model_name,ax in zip(model_names,g.axes.flatten()):
     df_sub = df_plot[df_plot['Model name'] == model_name]
-    df_sub['groups'] = df_sub['x'].apply(cut_bins)
-    counter = df_sub.groupby(['groups','Decode Above Chance']).count().reset_index()[['groups','Decode Above Chance','x']]
-    sum_of_group = counter['x'].values[::2] + counter['x'].values[1::2]
-    counter['proportion'] = counter['x'].values / np.repeat(sum_of_group,2)
-    counter['Model name'] = model_name
-    temp.append(counter)
+    temp = df_sub.groupby(['Model name','groups','Decode Above Chance']).sum().reset_index()
+    temp_sum = temp['i'].values.reshape(-1,2).sum(1)
+    temp_sum = np.repeat(temp_sum,2)
+    temp['sum'] = temp_sum
+    temp['proportion'] = temp['i'] / temp['sum']
+    df_proportion.append(temp)
     
     
     tiny_ax = ax.inset_axes([.6,.15,.25,.25])
@@ -317,7 +328,7 @@ for model_name,ax in zip(model_names,g.axes.flatten()):
                           y = 'proportion',
                           hue = 'Decode Above Chance',
                           hue_order = [True,False],
-                          data = counter,
+                          data = temp,
                           ax = tiny_ax,
                           palette = ['green','red'],
                           )
@@ -329,8 +340,8 @@ for model_name,ax in zip(model_names,g.axes.flatten()):
     tiny_ax.get_legend().remove()
     simpleaxes(tiny_ax)
     
-df_proportion = pd.concat(temp)
-df_proportion.to_csv(os.path.join(paper_dir.replace('figures','stats'),
+df_proportion = pd.concat(df_proportion)
+df_proportion.to_csv(os.path.join(paper_dir,#.replace('figures','stats'),
                                   'trained with noise CNN_chance_decode_proportion.csv'),
                       index = False)
 handles, labels                 = g.axes[0][0].get_legend_handles_labels()
@@ -343,15 +354,15 @@ g.fig.legend(handles,
               labels,
               loc = "center right",
               bbox_to_anchor = (1.05,0.5))
-# g.savefig(os.path.join(paper_dir,
-#                         'trained with noise chance cnn.jpg'),
-#           dpi = 100,
+g.savefig(os.path.join(paper_dir,
+                        'trained with noise chance cnn.jpg'),
+          dpi = 100,
+          bbox_inches = 'tight')
+# g.savefig(os.path.join(collect_dir,'supfigure10.eps'),
+#           dpi = 300,
 #           bbox_inches = 'tight')
-g.savefig(os.path.join(collect_dir,'supfigure10.eps'),
-          dpi = 300,
-          bbox_inches = 'tight')
-g.savefig(os.path.join(collect_dir,'supfigure10.png'),
-          bbox_inches = 'tight')
+# g.savefig(os.path.join(collect_dir,'supfigure10.png'),
+#           bbox_inches = 'tight')
 
 
 

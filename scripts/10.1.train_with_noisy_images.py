@@ -30,11 +30,11 @@ from utils_deep import (data_loader,
                         resample_ttest_2sample,
                         noise_fuc,
                         make_decoder,
-                        decode_hidden_layer,
                         resample_ttest,
                         resample_behavioral_estimate,
                         simple_augmentations
                         )
+from sklearn.model_selection import StratifiedShuffleSplit,cross_validate
 
 # experiment control
 model_dir               = '../models'
@@ -47,13 +47,12 @@ image_resize            = 128
 batch_size              = 8
 lr                      = 1e-4
 n_epochs                = int(1e3)
-device                  = 'cpu'
 pretrain_model_name     = 'vgg19_bn'
 hidden_units            = 5
 hidden_func_name        = 'selu'
 hidden_activation       = hidden_activation_functions(hidden_func_name)
 hidden_dropout          = 0.25
-patience                = 5
+patience                = 20
 output_activation       = 'softmax'
 model_saving_name       = f'{pretrain_model_name}_{hidden_units}_{hidden_func_name}_{hidden_dropout}_{output_activation}'
 testing                 = True #
@@ -118,7 +117,7 @@ model_to_train                              = train_and_validation(
         patience        = 5,
         train_root      = train_root,
         valid_root      = valid_root,
-        n_noise         = 0,
+        n_noise         = 2,
         noise_level     = 1.
         )
 
@@ -143,18 +142,7 @@ results         = dict(model_name           = [],
                        cnn_score            = [],
                        cnn_pval             = [],
                        )
-model_to_test = build_model(
-                pretrain_model_name,
-                hidden_units,
-                hidden_activation,
-                hidden_dropout,
-                output_units,
-                )
-model_to_test = torch.load(f_name)
-model_to_test.eval()
-for param in model_to_test.parameters():
-    param.requires_grad = False
-loss_func,optimizer = createLossAndOptimizer(model_to_test,learning_rate = lr)
+
 for ii_var,var in enumerate(noise_levels):
     np.random.seed(12345)
     torch.manual_seed(12345)
@@ -165,7 +153,18 @@ for ii_var,var in enumerate(noise_levels):
             batch_size      = batch_size,
             # here I turn on the shuffle like it is in a real experiment
             )
-    
+    model_to_test = build_model(
+                    pretrain_model_name,
+                    hidden_units,
+                    hidden_activation,
+                    hidden_dropout,
+                    output_units,
+                    )
+    model_to_test = torch.load(f_name)
+    model_to_test.eval()
+    for param in model_to_test.parameters():
+        param.requires_grad = False
+    loss_func,optimizer = createLossAndOptimizer(model_to_test,learning_rate = lr)
     # evaluate the model
     y_trues,y_preds,features,labels = behavioral_evaluate(
                         model_to_test,
@@ -176,7 +175,7 @@ for ii_var,var in enumerate(noise_levels):
                         categorical = categorical,
                         output_activation = output_activation,
                         )
-    
+    del model_to_test
     behavioral_scores = resample_behavioral_estimate(y_trues,y_preds,int(1e3),shuffle = False)
     # print(var,np.mean(behavioral_scores))
     
@@ -194,10 +193,24 @@ for ii_var,var in enumerate(noise_levels):
     decode_labels   = torch.cat([torch.cat(item) for item in labels  ]).detach().cpu().numpy()
     if len(decode_labels.shape) > 1:
         decode_labels = decode_labels[:,-1]
+    
+    cv = StratifiedShuffleSplit(n_splits        = 50,
+                                test_size       = .2,
+                                random_state    = 12345,
+                                )
     gc.collect()
-    res,_,svm_cnn_pval = decode_hidden_layer(decoder,decode_features,decode_labels,
-                              n_splits = 50,
-                              test_size = 0.2,)
+    res = cross_validate(decoder,
+                         decode_features,
+                         decode_labels,
+                         cv                 = cv,
+                         scoring            = 'roc_auc',
+                         n_jobs             = 1,
+                         verbose            = 1,
+                         return_estimator   = False,
+                         )
+    # plase uncomment below and test this when you have enough computational power, i.e. parallel in more than 16 CPUs
+    svm_cnn_pval = resample_ttest(res['test_score'],baseline = 0.5,n_permutation = int(1e4),
+                                  one_tail = True,n_jobs = -1.)
     gc.collect()
     svm_cnn_scores = res['test_score']
     print(var,np.mean(behavioral_scores),np.mean(svm_cnn_scores),)

@@ -602,7 +602,7 @@ def train_loop(net,
             # modify the weights
             optimizer.step()
             # record the training loss of a mini-batch
-            train_loss  += loss_batch.data
+            train_loss  += loss_batch.item()
             if print_train:
                 iterator.set_description(f'epoch {idx_epoch+1}-{ii + 1:3.0f}/{100*(ii+1)/len(dataloader):2.3f}%,loss = {train_loss/(ii+1):.6f}')
                 
@@ -659,7 +659,7 @@ def validation_loop(net,
                 # compute the losses
                 loss_batch  = loss_func(outputs.to(device),batch_labels.view(outputs.shape).to(device))
                 # record the validation loss of a mini-batch
-                valid_loss  += loss_batch.data
+                valid_loss  += loss_batch.item()
                 denominator = ii
 
                 y_true.append(batch_labels)
@@ -716,7 +716,7 @@ def validation_loop_with_path(net,
                 # compute the losses
                 loss_batch  = loss_func(outputs.to(device),batch_labels.view(outputs.shape).to(device))
                 # record the validation loss of a mini-batch
-                valid_loss  += loss_batch.data
+                valid_loss  += loss_batch.item()
                 denominator = ii
 
                 y_true.append(batch_labels)
@@ -827,8 +827,8 @@ def train_and_validation(
         y_true = torch.cat(y_true)
         score = metrics.roc_auc_score(y_true.detach().cpu(),y_pred.detach().cpu())
         print(f'\nepoch {idx_epoch + 1}, loss = {valid_loss:6f},score = {score:.4f}')
-        if valid_loss.cpu().clone().detach().type(torch.float64) < best_valid_loss:
-            best_valid_loss = valid_loss.cpu().clone().detach().type(torch.float64)
+        if valid_loss < best_valid_loss:
+            best_valid_loss = valid_loss
             torch.save(model_to_train,f_name)
         else:
             model_to_train = torch.load(f_name)
