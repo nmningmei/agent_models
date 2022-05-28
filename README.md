@@ -7,10 +7,15 @@
 - tensorflow==2.0.1
 - scikit-learn==1.0
 
+# Main results
+## When we train the model configurations without noise (adding Gaussian noise to the image)
 ![performance](https://github.com/nmningmei/agent_models/blob/master/figures/CNN_performance.jpeg)
 
 ![decode](https://github.com/nmningmei/agent_models/blob/master/figures/decoding_performance.jpeg)
 
 ![featureimportance](https://github.com/nmningmei/agent_models/blob/master/figures/feature%20importance.jpeg)
+## When we train the model confirations with standard normal noise embedded
 
-![proba](https://github.com/nmningmei/agent_models/blob/master/figures/Probablity%20of%20the%20SVM%20being%20able%20to%20decode%20the%20CNN%20when%20CNN%20performs%20at%20chance%20level%2Cjpeg.png)
+![cnn_noise](https://github.com/nmningmei/agent_models/blob/master/figures/trained%20with%20noise%20performance.jpg)
+
+![cnn_chance](https://github.com/nmningmei/agent_models/blob/master/figures/trained%20with%20noise%20chance%20cnn.jpg)
